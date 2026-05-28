@@ -4,10 +4,12 @@
 *.h text eol=lf
 *.qml text eol=lf
 *.qrc text eol=lf
+*.rc text eol=lf
 *.md text eol=lf
 *.txt text eol=lf
 *.ps1 text eol=crlf
 
+*.ico binary
 *.png binary
 *.jpg binary
 *.jpeg binary

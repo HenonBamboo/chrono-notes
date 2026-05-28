@@ -46,6 +46,7 @@ qt_add_executable(ChronoNotes WIN32
     src/project_tree_model.h
     src/backup_service.h
     resources.qrc
+    assets/windows_app.rc
     ${APP_SOURCES}
 )
 
