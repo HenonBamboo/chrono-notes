@@ -13,7 +13,7 @@ ApplicationWindow {
     minimumWidth: 700
     minimumHeight: 520
     visible: true
-    title: "便签"
+    title: "ChronoNotes"
     color: root.paperColor
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
     background: Item {}
@@ -171,7 +171,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            titleText: root.workspace === "projects" ? "项目树 · 构建与分化" : "便签 · " + root.app.stageLabel + " " + root.app.dateKey
+            titleText: root.workspace === "projects" ? "ChronoNotes · 项目树" : "ChronoNotes · " + root.app.stageLabel + " " + root.app.dateKey
             activePanel: root.panel
             workspace: root.workspace
             windowVisibility: root.visibility

@@ -109,7 +109,7 @@ int ai_client_summarize(
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setRawHeader("Accept", "application/json");
-    request.setRawHeader("User-Agent", "StickyNotesC/1.0");
+    request.setRawHeader("User-Agent", "ChronoNotes/1.0");
     request.setRawHeader("Authorization", "Bearer " + from_wide(config->api_key).toUtf8());
 
     QNetworkAccessManager manager;

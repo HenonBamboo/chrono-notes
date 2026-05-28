@@ -12,8 +12,8 @@ int main(int argc, char *argv[]) {
     QQuickWindow::setDefaultAlphaBuffer(true);
     QGuiApplication app(argc, argv);
     app.setOrganizationName(QStringLiteral("Codex"));
-    app.setApplicationName(QStringLiteral("Sticky AI"));
-    app.setWindowIcon(QIcon(QStringLiteral(":/assets/sticky_ai_logo.png")));
+    app.setApplicationName(QStringLiteral("ChronoNotes"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/assets/chrono_notes_logo.png")));
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     NoteApp note_app;
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
         {QStringLiteral("app"), QVariant::fromValue(&note_app)},
         {QStringLiteral("projectModel"), QVariant::fromValue(&project_tree)}
     });
-    engine.loadFromModule(QStringLiteral("StickyNotes"), QStringLiteral("Main"));
+    engine.loadFromModule(QStringLiteral("ChronoNotes"), QStringLiteral("Main"));
     if (engine.rootObjects().isEmpty()) {
         return 1;
     }

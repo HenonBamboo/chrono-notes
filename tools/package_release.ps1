@@ -1,15 +1,15 @@
 param(
     [string]$BuildDir = (Join-Path $PSScriptRoot '..\cmake-build-qt-debug'),
     [string]$OutputDir = (Join-Path $PSScriptRoot '..\dist'),
-    [string]$PackageName = 'StickyNotesC'
+    [string]$PackageName = 'ChronoNotes'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $build = Resolve-Path -LiteralPath $BuildDir
-$exe = Join-Path $build 'StickyNotesC.exe'
+$exe = Join-Path $build 'ChronoNotes.exe'
 if (-not (Test-Path -LiteralPath $exe)) {
-    throw "StickyNotesC.exe not found in $build. Build the StickyNotesC target first."
+    throw "ChronoNotes.exe not found in $build. Build the ChronoNotes target first."
 }
 
 $output = (New-Item -ItemType Directory -Force -Path $OutputDir).FullName
@@ -19,7 +19,7 @@ if (Test-Path -LiteralPath $stage) {
 }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-foreach ($pattern in @('StickyNotesC.exe', '*.dll', '*.qm')) {
+foreach ($pattern in @('ChronoNotes.exe', '*.dll', '*.qm')) {
     Get-ChildItem -LiteralPath $build -Filter $pattern -File | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $stage -Force
     }
@@ -34,7 +34,7 @@ foreach ($dir in @(
     'qml',
     'qmltooling',
     'sqldrivers',
-    'StickyNotes',
+    'ChronoNotes',
     'tls',
     'translations'
 )) {
@@ -47,6 +47,11 @@ foreach ($dir in @(
 $readme = Join-Path $PSScriptRoot '..\README.md'
 if (Test-Path -LiteralPath $readme) {
     Copy-Item -LiteralPath $readme -Destination $stage -Force
+}
+
+$assets = Join-Path $PSScriptRoot '..\assets'
+if (Test-Path -LiteralPath $assets) {
+    Copy-Item -LiteralPath $assets -Destination $stage -Recurse -Force
 }
 
 $zip = Join-Path $output "$PackageName.zip"

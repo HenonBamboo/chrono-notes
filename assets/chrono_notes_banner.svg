@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title id="title">ChronoNotes project banner</title>
+  <desc id="desc">A polished desktop notes application banner showing time-based note cards, local storage, and AI summary cues.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.45" stop-color="#fff4b8"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="card" x1="360" y1="86" x2="1048" y2="452" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fffdf4"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-16%" width="124%" height="132%">
+      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#172033" flood-opacity="0.16"/>
+    </filter>
+    <filter id="softShadow" x="-16%" y="-20%" width="132%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#172033" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="520" fill="url(#bg)"/>
+  <path d="M0 410C156 354 280 366 427 408C594 455 725 457 882 405C1031 356 1158 350 1280 394V520H0V410Z" fill="#fefce8" opacity="0.75"/>
+
+  <g transform="translate(88 92)">
+    <rect width="184" height="208" rx="42" fill="#fff2a8" filter="url(#softShadow)"/>
+    <circle cx="137" cy="40" r="11" fill="#2563eb"/>
+    <path d="M49 150V58h24l52 57V58h27v92h-23L76 93v57H49z" fill="#172033"/>
+    <path d="M141 126l8 20 20 8-20 8-8 20-8-20-20-8 20-8 8-20z" fill="#2563eb"/>
+  </g>
+
+  <text x="88" y="372" fill="#172033" font-family="Segoe UI, Arial, sans-serif" font-size="56" font-weight="800">ChronoNotes</text>
+  <text x="92" y="414" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="24">Time-based notes, local-first storage, AI summaries.</text>
+
+  <g transform="translate(420 66)" filter="url(#shadow)">
+    <rect width="760" height="372" rx="28" fill="url(#card)" stroke="#e2e8f0"/>
+    <rect x="0" y="0" width="760" height="58" rx="28" fill="#ffffff"/>
+    <circle cx="34" cy="30" r="7" fill="#cbd5e1"/>
+    <circle cx="58" cy="30" r="7" fill="#cbd5e1"/>
+    <circle cx="82" cy="30" r="7" fill="#cbd5e1"/>
+    <text x="118" y="38" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700">Today · 2026-05-29</text>
+
+    <g transform="translate(36 88)">
+      <rect width="192" height="38" rx="19" fill="#172033"/>
+      <text x="24" y="25" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Daily</text>
+      <rect x="208" width="192" height="38" rx="19" fill="#f1f5f9"/>
+      <text x="232" y="25" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Weekly</text>
+      <rect x="416" width="192" height="38" rx="19" fill="#f1f5f9"/>
+      <text x="440" y="25" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Monthly</text>
+    </g>
+
+    <g transform="translate(36 154)">
+      <rect width="446" height="70" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+      <circle cx="34" cy="35" r="12" fill="#facc15"/>
+      <path d="M29 35l4 4 8-10" fill="none" stroke="#172033" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="64" y="32" fill="#172033" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Write project release notes</text>
+      <text x="64" y="54" fill="#64748b" font-family="Segoe UI, Arial, sans-serif" font-size="13">Not done · local SQLite · Ctrl+N ready</text>
+    </g>
+
+    <g transform="translate(36 240)">
+      <rect width="446" height="70" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+      <circle cx="34" cy="35" r="12" fill="#dbeafe"/>
+      <path d="M29 35l4 4 8-10" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="64" y="32" fill="#172033" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Review weekly archive</text>
+      <text x="64" y="54" fill="#64748b" font-family="Segoe UI, Arial, sans-serif" font-size="13">Auto-collected from daily notes</text>
+    </g>
+
+    <g transform="translate(520 154)">
+      <rect width="196" height="156" rx="20" fill="#eff6ff" stroke="#bfdbfe"/>
+      <text x="22" y="38" fill="#1e3a8a" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="800">AI Summary</text>
+      <text x="22" y="70" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="13">OpenAI-compatible</text>
+      <text x="22" y="95" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="13">Async request flow</text>
+      <text x="22" y="120" fill="#334155" font-family="Segoe UI, Arial, sans-serif" font-size="13">History saved locally</text>
+    </g>
+  </g>
+</svg>

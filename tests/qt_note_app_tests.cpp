@@ -285,7 +285,7 @@ void QtNoteAppTests::exportsMarkdownSummary() {
     QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
     const QString markdown = QString::fromUtf8(file.readAll());
     QVERIFY2(markdown.contains(QStringLiteral("markdown item")), qPrintable(markdown));
-    QVERIFY2(markdown.contains(QStringLiteral("# StickyNotesC 导出")), qPrintable(markdown));
+    QVERIFY2(markdown.contains(QStringLiteral("# ChronoNotes 导出")), qPrintable(markdown));
 }
 
 void QtNoteAppTests::completingRecurringEventCreatesNextOccurrence() {

@@ -1,79 +1,102 @@
-# StickyNotesC
+<p align="center">
+  <img src="assets/chrono_notes_banner.svg" alt="ChronoNotes banner" width="100%">
+</p>
 
-这是一个 Windows 桌面便签程序。当前主线是 **Qt 6 Quick/QML + C++17**，可在 CLion 中通过 CMake 管理、编译和运行。
+# ChronoNotes
 
-## 当前技术路线
+ChronoNotes 是一款基于 **Qt 6 Quick/QML + C++17** 的 Windows 桌面笔记与任务整理工具。它不是 Notion 的替代品，也不是云协作系统；它专注于一个更窄、更扎实的目标：让本地日常事项可以按时间阶段组织、快速输入、可靠保存，并在需要时调用 OpenAI-compatible 接口生成摘要。
 
-- UI：Qt 6 Quick/QML，不使用 WebView，也不是浏览器页面。
-- 应用层：C++17，入口位于 `src/qt_main.cpp`。
-- Qt 模型：`src/qt_note_app.cpp` / `src/qt_note_app.h`。
-- 数据存储：C++17 + QtSql SQLite，位于 `src/note_store.cpp` / `src/note_store.h`，首次启动会从旧 `notes.db.txt` 自动迁移。
-- 配置存储：C++17 本地 ini 文件，位于 `src/config.cpp` / `src/config.h`。
-- AI 接口：C++17 + Qt Network，OpenAI-compatible HTTP 接口，位于 `src/ai_client.cpp` / `src/ai_client.h`。
+## 为什么做它
 
-## 当前功能
+普通便签适合随手记，但时间维度经常散；完整项目管理工具又太重，打开就像要开会。ChronoNotes 走中间路线：用“每天、每周、每月、每年”的阶段视图承载短任务，用本地 SQLite 保证数据在自己机器上，用 AI 摘要把当前阶段内容压成可回顾的记录。
 
-- 按每天、每周、每月、每年管理便签。
-- 每条事件可标记完成，完成后记录完成时间。
-- 未完成事件显示在已完成事件上方，各组内部按最近时间排序。
-- 周、月、年视图会自动收纳每日事件，并以只读内容显示。
-- 自动收纳内容在周、月、年视图中统一放入“自动收纳”分组，来源日期显示在行内信息里。
-- 自动收纳分组可在列表里折叠或展开，避免历史内容挤占手动计划。
-- 支持点击事件后在列表内直接编辑。
-- 支持再次点击“全选完成”取消全选。
-- 删除事件、完成/取消完成事件后，支持 5 秒内按 `Ctrl+Z` 撤销。
-- 支持 `Ctrl+F` 呼出全局搜索，按关键词搜索全部阶段和自动收纳内容。
-- 搜索支持按全部、未完成、已完成筛选，并在结果中高亮关键词。
-- 支持 `Ctrl+N` 聚焦新建输入框。
-- 支持分层 `Esc` 行为：先退出编辑焦点，再关闭抽屉或搜索。
-- 支持长内容右侧详情抽屉，普通事件可编辑，自动收纳事件只读查看。
-- 支持重复任务：每天、每周、每月、每年，完成后自动生成下一条。
-- 支持通过系统文件选择窗口导出 JSON、导入 JSON、导出 Markdown。
-- 支持清理当前阶段已完成、全局已完成、当前阶段全部、全部便签。
-- 支持本地操作日志，记录新增、更新、完成、删除、撤销、导入导出、清理等动作。
-- 支持 AI 摘要历史保存，便于回看每次摘要要求、结果和输入内容。
-- 支持配置 API URL、API Key、模型名称，并对当前视图内容生成 AI 摘要。
-- 支持无边框窗口、四边与四角拖拽缩放。
+## 功能特性
 
-## 构建目标
+- 时间阶段：支持每天、每周、每月、每年四类视图。
+- 本地优先：笔记、配置、操作日志和摘要历史默认保存在本地。
+- SQLite 存储：主数据使用 QtSql SQLite，旧 `notes.db.txt` 会在首次启动时迁移。
+- 快速编辑：支持新增、编辑、完成、取消完成、删除和 `Ctrl+Z` 短时撤销。
+- 自动收纳：周、月、年视图会聚合每日事项，并以只读归档形式展示。
+- 全局搜索：支持跨阶段搜索、完成状态筛选和关键词高亮。
+- 重复任务：支持 daily、weekly、monthly、yearly 重复规则。
+- 导入导出：支持 JSON 导入/导出和 Markdown 导出。
+- AI 摘要：支持配置 API URL、API Key 和模型名，调用 OpenAI-compatible HTTP 接口异步生成摘要。
+- 项目树：提供本地项目结构视图，用于梳理构建和分化关系。
+- 无边框窗口：支持自绘标题栏、四边和四角拖拽缩放。
 
-CMake 目标：
+## 技术路线
 
-```text
-StickyNotesC
-```
+| 模块 | 实现 |
+| --- | --- |
+| UI | Qt 6 Quick/QML，不使用 WebView |
+| 应用层 | C++17 + Qt 模型，入口位于 `src/qt_main.cpp` |
+| 数据层 | `src/note_store.cpp` / `src/note_store.h`，QtSql SQLite |
+| 配置 | `src/config.cpp` / `src/config.h`，本地 ini 文件 |
+| AI 客户端 | `src/ai_client.cpp` / `src/ai_client.h`，OpenAI-compatible HTTP |
+| 备份导入导出 | `src/backup_service.cpp` / `src/backup_service.h` |
+| 测试 | C++ 单元测试 + QML 交互测试，统一接入 CTest |
 
-CLion 中选择并运行 `StickyNotesC` 即可。
-
-推荐构建目录：
+## 项目结构
 
 ```text
-D:\AI\Codex\cmake-build-qt-debug
+assets/     图标与 README 展示素材
+docs/       项目状态与开发说明
+qml/        Qt Quick/QML 界面组件
+src/        C++ 应用层、数据层、配置和 AI 客户端
+tests/      C++ 与 QML 测试
+tools/      打包与维护脚本
 ```
 
-## 常用验证命令
+## 构建要求
 
-构建：
+- Windows
+- Qt 6.8.x MinGW 版本
+- CMake 4.0+
+- C++17 编译器
+- CLion 可选，但当前工程按 CLion + CMake 路线维护
+
+当前仓库默认查找 Qt 路径：
+
+```text
+third_party/Qt/6.8.3/mingw_64
+```
+
+如果你的 Qt 安装在其他位置，需要调整 `CMAKE_PREFIX_PATH` 或在 CMake 配置阶段传入自己的 Qt 路径。别把本地 Qt SDK 提交进仓库，那个体积不是仓库，是搬家。
+
+## 构建
 
 ```powershell
 $env:PATH='C:\Program Files\JetBrains\CLion 2025.2\bin\mingw\bin;' + $env:PATH
 & 'C:\Program Files\JetBrains\CLion 2025.2\bin\cmake\win\x64\bin\cmake.exe' --build 'D:\AI\Codex\cmake-build-qt-debug' -j 6
 ```
 
-单元测试：
+CMake 目标：
+
+```text
+ChronoNotes
+```
+
+构建后的主程序：
+
+```text
+cmake-build-qt-debug\ChronoNotes.exe
+```
+
+## 验证
+
+运行完整测试：
 
 ```powershell
 & 'C:\Program Files\JetBrains\CLion 2025.2\bin\cmake\win\x64\bin\ctest.exe' --test-dir 'D:\AI\Codex\cmake-build-qt-debug' --output-on-failure
 ```
 
-QML 检查：
+运行 QML 静态检查：
 
 ```powershell
-$env:PATH='C:\Program Files\JetBrains\CLion 2025.2\bin\mingw\bin;' + $env:PATH
 & 'D:\AI\Codex\third_party\Qt\6.8.3\mingw_64\bin\qmllint.exe' 'D:\AI\Codex\qml\Main.qml' 'D:\AI\Codex\qml\AppTitleBar.qml' 'D:\AI\Codex\qml\StageTabs.qml' 'D:\AI\Codex\qml\SearchBar.qml' 'D:\AI\Codex\qml\EventComposer.qml' 'D:\AI\Codex\qml\ProgressStats.qml' 'D:\AI\Codex\qml\NoteListPanel.qml' 'D:\AI\Codex\qml\NoteRow.qml' 'D:\AI\Codex\qml\OverlayPanel.qml' 'D:\AI\Codex\qml\AiSummaryPanel.qml' 'D:\AI\Codex\qml\DetailPanel.qml' 'D:\AI\Codex\qml\SettingsPanel.qml' 'D:\AI\Codex\qml\TinyMeta.qml' 'D:\AI\Codex\qml\ToolPill.qml' 'D:\AI\Codex\qml\WindowButton.qml'
 ```
 
-发布 ZIP 包：
+## 打包
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File 'D:\AI\Codex\tools\package_release.ps1'
@@ -82,12 +105,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 'D:\AI\Codex\tools\package_r
 输出位置：
 
 ```text
-D:\AI\Codex\dist\StickyNotesC.zip
+D:\AI\Codex\dist\ChronoNotes.zip
 ```
 
 ## 数据文件
 
-运行后的数据默认保存在构建输出目录：
+运行数据默认保存在构建输出目录下：
 
 ```text
 cmake-build-qt-debug\data\notes.sqlite
@@ -96,38 +119,12 @@ cmake-build-qt-debug\data\summary-history.md
 cmake-build-qt-debug\data\config.ini
 ```
 
-Qt 测试会使用 `STICKY_NOTES_DATA_DIR` 指向临时目录，避免污染真实运行数据。
+测试会通过 `STICKY_NOTES_DATA_DIR` 指向临时目录，避免污染真实运行数据。这个环境变量名称保留旧前缀是为了兼容现有测试和历史数据路径，不代表项目展示名。
 
-## 项目目录
+## 许可
 
-- `src/`：当前主线 C++ 源码。
-- `qml/`：当前主线 Qt/QML UI。
-- `assets/`：程序图标和 UI 资源。
-- `tests/`：C 数据层、配置层和 Qt 应用层测试。
-- `tools/`：打包与维护脚本。
+本项目使用 `PolyForm Noncommercial License 1.0.0`。你可以在非商业目的下使用、学习和修改本项目；商业使用不在该许可范围内。
 
-## 路线状态
+## 当前状态
 
-已完成或基本完成：
-
-- 工程主线收敛到 Qt/QML。
-- README 已同步为当前 Qt/QML 路线。
-- AI 摘要已改为后台异步调用，避免阻塞主界面。
-- AI 摘要和设置抽屉已拆成独立 QML 组件。
-- 完成/删除后的模型更新已减少整页刷新。
-- 删除、完成/取消完成后支持 5 秒内撤销。
-- Qt 测试使用临时数据目录。
-- 全局搜索支持跨阶段检索，并可继续操作原事件。
-- 长内容详情抽屉已接入，解决长文本强塞列表导致的阅读和编辑问题。
-- `Ctrl+N` 和分层 `Esc` 已补齐，日常键盘流转不再一按就把抽屉和搜索全清空。
-- 自动收纳项已收敛到一个外层分组，来源日期放在行内信息里，避免列表外层被日期切碎。
-- 自动收纳分组已支持折叠/展开。
-- 活动源码已从 C/C++ 混合切到 C++17。
-- SQLite 数据层、旧文本数据迁移、动态内存数据模型、重复任务、带文件选择的 JSON/Markdown 导入导出、搜索筛选与关键词高亮已接入。
-- 本地操作日志、AI 摘要历史、自动收纳默认密度控制已接入。
-- ZIP 发布包脚本已接入，构建后可直接生成包含 Qt 运行时的分发包。
-
-后续优先级建议：
-
-1. 操作日志恢复界面：把 `operations.jsonl` 从审计记录进一步做成可视化恢复入口。
-2. 视觉和动画继续统一打磨。
+ChronoNotes 已完成 Qt/QML 主线、SQLite 存储、导入导出、搜索、重复任务、AI 摘要、摘要历史、操作日志和发布包脚本。后续更值得投入的是操作日志恢复界面、视觉细节打磨和正式安装器，而不是一上来搞账号系统或云同步。那个方向不是不能做，是现在做就像房子地基还没验收先装水晶吊灯，挺热闹，也挺悬。

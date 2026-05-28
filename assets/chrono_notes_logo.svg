@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
     <linearGradient id="tile" x1="42" y1="30" x2="214" y2="226" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#e9f2ff"/>
-      <stop offset="0.62" stop-color="#fff8ca"/>
-      <stop offset="1" stop-color="#f4c23d"/>
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.55" stop-color="#fff2a8"/>
+      <stop offset="1" stop-color="#f4bf30"/>
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="16" stdDeviation="13" flood-color="#172033" flood-opacity="0.18"/>
     </filter>
   </defs>
   <rect x="34" y="28" width="188" height="200" rx="46" fill="url(#tile)" filter="url(#shadow)"/>
-  <circle cx="178" cy="64" r="12" fill="#2d68c7"/>
-  <path d="M78 176V80h24l54 59V80h28v96h-24l-54-59v59H78z" fill="#14345c"/>
-  <path d="M184 146l10 24 24 10-24 10-10 24-10-24-24-10 24-10 10-24z" fill="#2d68c7"/>
+  <circle cx="180" cy="64" r="12" fill="#2563eb"/>
+  <path d="M74 177V80h25l55 60V80h28v97h-24l-56-60v60H74z" fill="#172033"/>
+  <path d="M185 146l10 24 24 10-24 10-10 24-10-24-24-10 24-10 10-24z" fill="#2563eb"/>
 </svg>

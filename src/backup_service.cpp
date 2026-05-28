@@ -204,7 +204,7 @@ bool exportMarkdown(const NoteStore &store, const QUrl &fileUrl, QString *path, 
     }
 
     QTextStream out(&file);
-    out << "# StickyNotesC 导出\n\n";
+    out << "# ChronoNotes 导出\n\n";
     for (int stage = NOTE_STAGE_DAY; stage <= NOTE_STAGE_YEAR; ++stage) {
         out << "## " << fromWide(note_stage_label(static_cast<NoteStage>(stage))) << "\n\n";
         for (int i = 0; i < store.count; ++i) {

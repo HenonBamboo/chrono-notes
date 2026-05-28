@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
-project(StickyNotesC CXX)
+project(ChronoNotes CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -27,7 +27,7 @@ set(APP_SOURCES
 )
 
 # Active desktop implementation: Qt/QML shell plus C++ data/config/AI modules.
-qt_add_executable(StickyNotesC WIN32
+qt_add_executable(ChronoNotes WIN32
     src/qt_main.cpp
     src/qt_note_app.cpp
     src/qt_note_app.h
@@ -38,8 +38,8 @@ qt_add_executable(StickyNotesC WIN32
     ${APP_SOURCES}
 )
 
-qt_add_qml_module(StickyNotesC
-    URI StickyNotes
+qt_add_qml_module(ChronoNotes
+    URI ChronoNotes
     VERSION 1.0
     QML_FILES
         qml/Main.qml
@@ -60,17 +60,17 @@ qt_add_qml_module(StickyNotesC
         qml/WindowButton.qml
 )
 
-target_include_directories(StickyNotesC PRIVATE
+target_include_directories(ChronoNotes PRIVATE
     src
 )
-target_compile_definitions(StickyNotesC PRIVATE UNICODE _UNICODE)
-target_link_libraries(StickyNotesC PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Sql Qt6::Network user32)
+target_compile_definitions(ChronoNotes PRIVATE UNICODE _UNICODE)
+target_link_libraries(ChronoNotes PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Sql Qt6::Network user32)
 
 if (WIN32)
-    add_custom_command(TARGET StickyNotesC POST_BUILD
+    add_custom_command(TARGET ChronoNotes POST_BUILD
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin/windeployqt.exe"
                 --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
-                "$<TARGET_FILE:StickyNotesC>"
+                "$<TARGET_FILE:ChronoNotes>"
         COMMENT "Deploying Qt runtime"
     )
 endif()

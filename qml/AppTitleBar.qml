@@ -48,13 +48,13 @@ Rectangle {
         Image {
             width: 24
             height: 24
-            source: "qrc:/assets/sticky_ai_logo.png"
+            source: "qrc:/assets/chrono_notes_logo.png"
             fillMode: Image.PreserveAspectFit
             smooth: true
         }
 
         ToolPill {
-            text: "便签"
+            text: "笔记"
             widthHint: 48
             active: titlebar.workspace === "notes"
             onClicked: titlebar.workspaceRequested("notes")

@@ -1,6 +1,6 @@
 <RCC>
     <qresource prefix="/">
-        <file>assets/sticky_ai_logo.png</file>
-        <file>assets/sticky_ai_logo.svg</file>
+        <file>assets/chrono_notes_logo.png</file>
+        <file>assets/chrono_notes_logo.svg</file>
     </qresource>
 </RCC>
