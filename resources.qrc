@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/sticky_ai_logo.png</file>
+        <file>assets/sticky_ai_logo.svg</file>
+    </qresource>
+</RCC>

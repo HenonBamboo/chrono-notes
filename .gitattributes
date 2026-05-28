@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+*.cpp text eol=lf
+*.h text eol=lf
+*.qml text eol=lf
+*.qrc text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.sqlite binary
+*.db binary

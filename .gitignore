@@ -1,0 +1,66 @@
+# Build output
+cmake-build-*/
+build/
+out/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+Makefile
+*.cmake.user
+
+# Qt generated and deployment artifacts
+*_autogen/
+*.qmltypes
+*_qmltyperegistrations.cpp
+*_qml_module_dir_map.qrc
+meta_types/
+qmltypes/
+translations/
+platforms/
+imageformats/
+iconengines/
+generic/
+networkinformation/
+tls/
+qmltooling/
+
+# Compiled binaries and libraries
+*.exe
+*.dll
+*.lib
+*.a
+*.obj
+*.o
+*.pdb
+*.ilk
+
+# Runtime data and local exports
+data/
+dist/
+*.sqlite
+*.db
+*.db.txt
+*.jsonl
+summary-history.md
+
+# Local Qt SDK/vendor binaries
+third_party/Qt/
+
+# IDE and editor state
+.idea/
+.vscode/
+*.swp
+*.swo
+*.user
+
+# Local automation/tooling caches
+.superpowers/
+.tools/
+
+# OS noise
+Thumbs.db
+Desktop.ini
