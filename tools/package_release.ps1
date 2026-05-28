@@ -1,5 +1,5 @@
 param(
-    [string]$BuildDir = (Join-Path $PSScriptRoot '..\cmake-build-qt-debug'),
+    [string]$BuildDir = (Join-Path $PSScriptRoot '..\build'),
     [string]$OutputDir = (Join-Path $PSScriptRoot '..\dist'),
     [string]$PackageName = 'ChronoNotes'
 )

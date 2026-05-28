@@ -12,6 +12,17 @@ set(CMAKE_PREFIX_PATH
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2 Test Concurrent Sql Network)
 
+set(CHRONONOTES_QT_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin")
+set(CHRONONOTES_MINGW_RUNTIME_BIN "" CACHE PATH "Optional MinGW runtime bin directory for running tests.")
+set(CHRONONOTES_TEST_ENV
+    "PATH=path_list_prepend:${CHRONONOTES_QT_BIN_DIR}"
+)
+if (CHRONONOTES_MINGW_RUNTIME_BIN)
+    list(APPEND CHRONONOTES_TEST_ENV
+        "PATH=path_list_prepend:${CHRONONOTES_MINGW_RUNTIME_BIN}"
+    )
+endif()
+
 if (COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
     qt_policy(SET QTP0004 NEW)
@@ -101,8 +112,7 @@ target_link_libraries(note_view_tests PRIVATE Qt6::Test Qt6::Sql)
 
 add_test(NAME note_view_tests COMMAND note_view_tests)
 set_tests_properties(note_view_tests PROPERTIES
-    ENVIRONMENT_MODIFICATION
-        "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin;PATH=path_list_prepend:C:/Program Files/JetBrains/CLion 2025.2/bin/mingw/bin"
+    ENVIRONMENT_MODIFICATION "${CHRONONOTES_TEST_ENV}"
 )
 
 add_executable(project_tree_model_tests
@@ -117,8 +127,7 @@ target_link_libraries(project_tree_model_tests PRIVATE Qt6::Test)
 
 add_test(NAME project_tree_model_tests COMMAND project_tree_model_tests)
 set_tests_properties(project_tree_model_tests PROPERTIES
-    ENVIRONMENT_MODIFICATION
-        "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin;PATH=path_list_prepend:C:/Program Files/JetBrains/CLion 2025.2/bin/mingw/bin"
+    ENVIRONMENT_MODIFICATION "${CHRONONOTES_TEST_ENV}"
 )
 
 add_executable(config_tests
@@ -144,8 +153,7 @@ target_link_libraries(qt_note_app_tests PRIVATE Qt6::Quick Qt6::QuickControls2 Q
 
 add_test(NAME qt_note_app_tests COMMAND qt_note_app_tests)
 set_tests_properties(qt_note_app_tests PROPERTIES
-    ENVIRONMENT_MODIFICATION
-        "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin;PATH=path_list_prepend:C:/Program Files/JetBrains/CLion 2025.2/bin/mingw/bin"
+    ENVIRONMENT_MODIFICATION "${CHRONONOTES_TEST_ENV}"
 )
 
 add_test(NAME qml_interaction_tests
@@ -155,5 +163,5 @@ add_test(NAME qml_interaction_tests
 )
 set_tests_properties(qml_interaction_tests PROPERTIES
     ENVIRONMENT_MODIFICATION
-        "PATH=path_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Qt/6.8.3/mingw_64/bin;PATH=path_list_prepend:C:/Program Files/JetBrains/CLion 2025.2/bin/mingw/bin;QT_QUICK_CONTROLS_STYLE=set:Basic"
+        "${CHRONONOTES_TEST_ENV};QT_QUICK_CONTROLS_STYLE=set:Basic"
 )
