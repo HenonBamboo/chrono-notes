@@ -1,4 +1,4 @@
-# ChronoNotes v0.1.0
+# ChronoNotes v0.1.3
 
 ## Highlights
 
@@ -20,6 +20,7 @@
 - `project_tree_model_tests`
 - QML interaction tests for app title bar, project tree, settings, AI summary, note list, and search
 - Full QML suite: `40 passed, 0 failed`
+- Full CTest suite: `6 passed, 0 failed`
 
 ## Open Design
 
