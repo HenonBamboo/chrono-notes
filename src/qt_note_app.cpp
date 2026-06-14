@@ -251,7 +251,7 @@ void NoteApp::addEvent(const QString &text) {
     const std::wstring wide = toWide(trimmed);
     NoteEvent *event = note_store_add(&store_, stage_, date_key_, wide.c_str());
     if (event == nullptr) {
-        setNotice(QStringLiteral("事件创建失败，请检查内容后重试。"));
+        setNotice(QStringLiteral("便签创建失败，请检查内容后重试。"));
         return;
     }
     saveNotes();
@@ -276,7 +276,7 @@ void NoteApp::addEvent(const QString &text) {
     } else {
         reload();
     }
-    setNotice(QStringLiteral("已添加新事件。"));
+    setNotice(QStringLiteral("已添加新便签。"));
     appendOperationLog(QStringLiteral("add"), event);
 }
 
@@ -332,7 +332,7 @@ void NoteApp::deleteEvent(int id) {
                 clearSelectedEvent();
             }
             appendOperationLog(QStringLiteral("delete"), &snapshot);
-            setNotice(QStringLiteral("已删除事件，可按 Ctrl+Z 撤销。"));
+            setNotice(QStringLiteral("已删除便签，可按 Ctrl+Z 撤销。"));
         }
         return;
     }
@@ -352,7 +352,7 @@ void NoteApp::deleteEvent(int id) {
             clearSelectedEvent();
         }
         appendOperationLog(QStringLiteral("delete"), &snapshot);
-        setNotice(QStringLiteral("已删除事件，可按 Ctrl+Z 撤销。"));
+        setNotice(QStringLiteral("已删除便签，可按 Ctrl+Z 撤销。"));
     }
 }
 
@@ -398,9 +398,9 @@ void NoteApp::clearCompletedCurrent() {
         reload();
         syncSelectedEvent();
         appendOperationLog(QStringLiteral("clear_completed_current"), nullptr, QString::number(removed));
-        setNotice(QStringLiteral("已删除当前阶段的已完成事件。"));
+        setNotice(QStringLiteral("已删除当前阶段的已完成便签。"));
     } else {
-        setNotice(QStringLiteral("当前阶段没有已完成事件。"));
+        setNotice(QStringLiteral("当前阶段没有已完成便签。"));
     }
 }
 
@@ -421,9 +421,9 @@ void NoteApp::clearCurrentStage() {
         reload();
         syncSelectedEvent();
         appendOperationLog(QStringLiteral("clear_current_stage"), nullptr, QString::number(removed));
-        setNotice(QStringLiteral("已清空当前阶段计划。"));
+        setNotice(QStringLiteral("已清空当前便签阶段。"));
     } else {
-        setNotice(QStringLiteral("当前阶段没有可清理的计划。"));
+        setNotice(QStringLiteral("当前阶段没有可清理的便签。"));
     }
 }
 
@@ -454,9 +454,9 @@ void NoteApp::clearCompletedAll() {
         reload();
         syncSelectedEvent();
         appendOperationLog(QStringLiteral("clear_completed_all"), nullptr, QString::number(removed));
-        setNotice(QStringLiteral("已删除全部已完成事件。"));
+        setNotice(QStringLiteral("已删除全部已完成便签。"));
     } else {
-        setNotice(QStringLiteral("没有已完成事件可清理。"));
+        setNotice(QStringLiteral("没有已完成便签可清理。"));
     }
 }
 
@@ -495,7 +495,7 @@ void NoteApp::undoLastAction() {
         }
     }
 
-    setNotice(QStringLiteral("撤销失败，原事件已变化。"));
+    setNotice(QStringLiteral("撤销失败，原便签已变化。"));
 }
 
 void NoteApp::selectEvent(int id, bool readOnly) {
@@ -522,7 +522,7 @@ void NoteApp::clearSelectedEvent() {
 
 void NoteApp::saveSelectedEvent(const QString &text) {
     if (!hasSelectedEvent()) {
-        setNotice(QStringLiteral("没有选中的事件。"));
+        setNotice(QStringLiteral("没有选中的便签。"));
         return;
     }
     if (selected_event_read_only_) {
@@ -555,7 +555,7 @@ bool NoteApp::setEventRepeat(int id, const QString &repeat) {
 }
 
 bool NoteApp::exportJson() {
-    return exportJsonToFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/notes-export.json")));
+    return exportJsonToFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/stickies-export.json")));
 }
 
 bool NoteApp::exportJsonToFile(const QUrl &fileUrl) {
@@ -571,7 +571,7 @@ bool NoteApp::exportJsonToFile(const QUrl &fileUrl) {
 }
 
 bool NoteApp::importJson() {
-    return importJsonFromFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/notes-export.json")));
+    return importJsonFromFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/stickies-export.json")));
 }
 
 bool NoteApp::importJsonFromFile(const QUrl &fileUrl) {
@@ -591,7 +591,7 @@ bool NoteApp::importJsonFromFile(const QUrl &fileUrl) {
 }
 
 bool NoteApp::exportMarkdown() {
-    return exportMarkdownToFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/notes-export.md")));
+    return exportMarkdownToFile(QUrl::fromLocalFile(fromWide(data_dir_) + QStringLiteral("/stickies-export.md")));
 }
 
 bool NoteApp::exportMarkdownToFile(const QUrl &fileUrl) {
@@ -620,7 +620,7 @@ QString NoteApp::summarize(const QString &requirement) {
         return QStringLiteral("总结要求不能为空。");
     }
     if (rows_.isEmpty()) {
-        return QStringLiteral("当前阶段还没有事件，先写点东西再总结。");
+        return QStringLiteral("当前阶段还没有便签，先写点东西再总结。");
     }
     const QString notes = summaryNotes();
     const QString result = summarizeWithConfig(config_, requirement, notes);
@@ -636,12 +636,37 @@ void NoteApp::summarizeAsync(const QString &requirement) {
         return;
     }
     if (rows_.isEmpty()) {
-        emit summaryReady(QStringLiteral("当前阶段还没有事件，先写点东西再总结。"));
+        emit summaryReady(QStringLiteral("当前阶段还没有便签，先写点东西再总结。"));
         return;
     }
 
     const AppConfig config = config_;
     const QString notes = summaryNotes();
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, trimmed, notes]() {
+        const QString result = watcher->result();
+        watcher->deleteLater();
+        appendSummaryHistory(trimmed, notes, result);
+        emit summaryReady(result);
+    });
+    watcher->setFuture(QtConcurrent::run([config, trimmed, notes]() {
+        return summarizeWithConfig(config, trimmed, notes);
+    }));
+}
+
+void NoteApp::summarizeContextAsync(const QString &requirement, const QString &context) {
+    const QString trimmed = requirement.trimmed();
+    const QString notes = context.trimmed();
+    if (trimmed.isEmpty()) {
+        emit summaryReady(QStringLiteral("总结要求不能为空。"));
+        return;
+    }
+    if (notes.isEmpty()) {
+        emit summaryReady(QStringLiteral("暂无可摘要内容，请先创建项目或便签。"));
+        return;
+    }
+
+    const AppConfig config = config_;
     auto *watcher = new QFutureWatcher<QString>(this);
     connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, trimmed, notes]() {
         const QString result = watcher->result();

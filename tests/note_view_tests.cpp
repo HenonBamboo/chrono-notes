@@ -8,6 +8,7 @@ class NoteViewTests : public QObject {
 private slots:
     void archiveRowsStayInsideSingleSection();
     void searchRowsCarryHighlightAndSourceMeta();
+    void searchRowsMarkFirstResultAsSectionStart();
 };
 
 void NoteViewTests::archiveRowsStayInsideSingleSection() {
@@ -44,6 +45,24 @@ void NoteViewTests::searchRowsCarryHighlightAndSourceMeta() {
     QVERIFY2(rows.at(0).highlighted_text.contains(QStringLiteral("<mark>target</mark>")),
              qPrintable(rows.at(0).highlighted_text));
     QVERIFY2(rows.at(0).meta.contains(QStringLiteral("2026-W21")), qPrintable(rows.at(0).meta));
+}
+
+void NoteViewTests::searchRowsMarkFirstResultAsSectionStart() {
+    NoteStore store{};
+    note_store_init(&store);
+    note_store_add(&store, NOTE_STAGE_DAY, L"2026-05-24", L"target one");
+    note_store_add(&store, NOTE_STAGE_WEEK, L"2026-W21", L"target two");
+
+    NoteView::BuildRequest request;
+    request.search_query = QStringLiteral("target");
+
+    const QVector<NoteView::Row> rows = NoteView::buildRows(&store, request);
+
+    QCOMPARE(rows.size(), 2);
+    QVERIFY(!rows.at(0).section.isEmpty());
+    QCOMPARE(rows.at(0).section, rows.at(1).section);
+    QVERIFY(rows.at(0).section_first);
+    QVERIFY(!rows.at(1).section_first);
 }
 
 QTEST_MAIN(NoteViewTests)

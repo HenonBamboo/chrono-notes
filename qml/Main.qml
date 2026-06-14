@@ -1,4 +1,4 @@
-pragma ComponentBehavior: Bound
+﻿pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -7,6 +7,8 @@ import QtQuick.Window
 
 ApplicationWindow {
     id: root
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     width: 900
     height: 620
@@ -22,19 +24,19 @@ ApplicationWindow {
     property string workspace: "notes"
     property bool aiBusy: false
     property bool searchOpen: false
-    property real drawerWidth: panel === "" ? 0 : Math.min(panel === "detail" ? 420 : 318, Math.max(panel === "detail" ? 330 : 276, width * (panel === "detail" ? 0.42 : 0.34)))
-    property color paperColor: root.workspace === "projects" ? "#e9f6f2" : "#fff5af"
-    property color cardColor: "#fffef7"
-    property color inkColor: "#071426"
-    property color mutedColor: "#64748b"
-    property color accentColor: "#f4bf30"
-    property color blueColor: "#2d68c7"
+    property real drawerWidth: panel === "" ? 0 : Math.min(320, Math.max(300, width * 0.34))
+    property color paperColor: root.workspace === "projects" ? tokens.paperProject : tokens.paper
+    property color cardColor: tokens.card
+    property color inkColor: tokens.ink
+    property color mutedColor: tokens.muted
+    property color accentColor: tokens.accentYellow
+    property color blueColor: tokens.accentBlue
     property url pendingImportFile
     property string pendingImportText: ""
     required property var app
     required property var projectModel
 
-    Behavior on drawerWidth { NumberAnimation { duration: 460; easing.type: Easing.OutCubic } }
+    Behavior on drawerWidth { NumberAnimation { duration: tokens.drawerDuration; easing.type: Easing.OutCubic } }
 
     function togglePanel(name) {
         root.panel = root.panel === name ? "" : name
@@ -92,7 +94,7 @@ ApplicationWindow {
     }
 
     function defaultExportName(suffix) {
-        return "notes-export." + suffix
+        return "stickies-export." + suffix
     }
 
     Connections {
@@ -156,14 +158,13 @@ ApplicationWindow {
         layer.enabled: false
 
         Rectangle {
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 52
             z: -1
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: root.workspace === "projects" ? "#f7fffc" : "#fffdf2" }
-                GradientStop { position: 0.14; color: root.workspace === "projects" ? "#f7fffc" : "#fffdf2" }
-                GradientStop { position: 0.15; color: root.workspace === "projects" ? "#e0f2ed" : "#fff5af" }
-                GradientStop { position: 1.0; color: root.workspace === "projects" ? "#cce7e8" : "#f8ed9c" }
-            }
+            color: root.workspace === "projects" ? tokens.mintSoft : tokens.paperSoft
+            opacity: 0.62
         }
 
         AppTitleBar {
@@ -171,7 +172,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            titleText: root.workspace === "projects" ? "ChronoNotes · 项目树" : "ChronoNotes · " + root.app.stageLabel + " " + root.app.dateKey
+            titleText: ""
             activePanel: root.panel
             workspace: root.workspace
             windowVisibility: root.visibility
@@ -191,7 +192,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.top: titlebar.bottom
             anchors.bottom: parent.bottom
-            anchors.right: drawer.left
+            anchors.right: parent.right
             clip: true
 
             Item {
@@ -257,7 +258,7 @@ ApplicationWindow {
                     anchors.topMargin: searchBar.open ? 8 : 10
                     stage: root.app.stage
                     inkColor: root.inkColor
-                    onEmptySubmitted: root.showToast("请输入事件内容")
+                    onEmptySubmitted: root.showToast("请输入便签内容")
                     onAddRequested: function(text) {
                         root.app.addEvent(text)
                     }
@@ -290,7 +291,7 @@ ApplicationWindow {
                     }
                     onSaveRequested: function(eventId, newText) {
                         if (newText.trim().length === 0) {
-                            root.showToast("事件内容不能为空")
+                            root.showToast("便签内容不能为空")
                             return
                         }
                         root.app.updateEvent(eventId, newText)
@@ -308,10 +309,31 @@ ApplicationWindow {
                     model: root.projectModel
                     inkColor: root.inkColor
                     mutedColor: root.mutedColor
+                    accentColor: tokens.accentMint
                     onNoticeRequested: function(message) {
                         root.showToast(message)
                     }
                 }
+            }
+        }
+
+        Rectangle {
+            id: drawerScrim
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: titlebar.bottom
+            anchors.bottom: parent.bottom
+            color: "#1a071426"
+            visible: opacity > 0
+            opacity: root.panel === "" ? 0 : 1
+            z: 24
+
+            Behavior on opacity { NumberAnimation { duration: tokens.drawerDuration; easing.type: Easing.OutCubic } }
+
+            MouseArea {
+                anchors.fill: parent
+                enabled: drawerScrim.opacity > 0
+                onClicked: root.closeCurrentPanel()
             }
         }
 
@@ -322,18 +344,23 @@ ApplicationWindow {
             anchors.bottom: parent.bottom
             width: root.drawerWidth
             visible: width > 1
+            z: 32
             panel: root.panel
             aiBusy: root.aiBusy
             detailText: root.app.selectedEventText
             detailMeta: root.app.selectedEventMeta
             detailRepeat: root.app.selectedEventRepeat
             detailReadOnly: root.app.selectedEventReadOnly
+            summaryScope: root.workspace === "projects" ? "projects" : "stickies"
+            summaryContextText: root.workspace === "projects" ? projectTree.aiContextText : ""
+            summaryEmpty: root.workspace === "projects" && !projectTree.aiSummaryAvailable
+            workspaceSurfaceColor: root.paperColor
             onCloseRequested: {
                 root.closeCurrentPanel()
             }
             onSaveDetailRequested: function(text) {
                 if (text.trim().length === 0) {
-                    root.showToast("事件内容不能为空")
+                    root.showToast("便签内容不能为空")
                     return
                 }
                 root.app.saveSelectedEvent(text)
@@ -341,10 +368,13 @@ ApplicationWindow {
             onRepeatDetailRequested: function(repeat) {
                 root.app.setEventRepeat(root.app.selectedEventId, repeat)
             }
-            onRunAiRequested: function(requirement) {
+            onRunAiRequested: function(requirement, contextText) {
                 root.aiBusy = true
                 drawer.aiResultText = ""
-                root.app.summarizeAsync(requirement)
+                if (root.workspace === "projects")
+                    root.app.summarizeContextAsync(requirement, contextText)
+                else
+                    root.app.summarizeAsync(requirement)
             }
             apiUrl: root.app.apiUrl
             apiKey: root.app.apiKey
@@ -368,7 +398,7 @@ ApplicationWindow {
 
     FileDialog {
         id: exportJsonDialog
-        title: "选择 JSON 导出位置"
+        title: "选择便签 JSON 导出位置"
         fileMode: FileDialog.SaveFile
         defaultSuffix: "json"
         selectedFile: root.defaultExportName("json")
@@ -378,7 +408,7 @@ ApplicationWindow {
 
     FileDialog {
         id: importJsonDialog
-        title: "选择要导入的 JSON 文件"
+        title: "选择要导入的便签 JSON 文件"
         fileMode: FileDialog.OpenFile
         nameFilters: ["JSON 文件 (*.json)", "所有文件 (*)"]
         onAccepted: {
@@ -386,7 +416,7 @@ ApplicationWindow {
             if (count < 0)
                 return
             root.pendingImportFile = selectedFile
-            root.pendingImportText = "将导入 " + count + " 条事件，并覆盖当前数据。"
+            root.pendingImportText = "将导入 " + count + " 条便签事件，并覆盖当前便签数据。项目树不会被修改。"
             importConfirmDialog.open()
         }
     }
@@ -415,7 +445,7 @@ ApplicationWindow {
 
     FileDialog {
         id: exportMarkdownDialog
-        title: "选择 Markdown 导出位置"
+        title: "选择便签 Markdown 导出位置"
         fileMode: FileDialog.SaveFile
         defaultSuffix: "md"
         selectedFile: root.defaultExportName("md")

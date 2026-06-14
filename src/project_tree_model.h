@@ -22,7 +22,8 @@ public:
         ExpandedRole,
         ChildCountRole,
         TotalTasksRole,
-        CompletedTasksRole
+        CompletedTasksRole,
+        DescriptionRole
     };
 
     explicit ProjectTreeModel(QObject *parent = nullptr);
@@ -38,6 +39,7 @@ public:
     Q_INVOKABLE int addProject(const QString &title);
     Q_INVOKABLE int addChild(int parentId, const QString &title);
     Q_INVOKABLE bool updateTitle(int id, const QString &title);
+    Q_INVOKABLE bool updateDescription(int id, const QString &description);
     Q_INVOKABLE bool toggleComplete(int id);
     Q_INVOKABLE bool toggleExpanded(int id);
     Q_INVOKABLE bool removeNode(int id);
@@ -51,6 +53,7 @@ private:
         int parent_id{};
         QString title;
         QString kind;
+        QString description;
         bool completed{};
         bool expanded{true};
         qint64 created_at{};

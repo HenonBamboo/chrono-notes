@@ -139,6 +139,9 @@ QVector<Row> buildRows(NoteStore *store, const BuildRequest &request) {
             }
             return left.event->id > right.event->id;
         });
+        if (!rows.isEmpty()) {
+            rows[0].section_first = true;
+        }
         return rows;
     }
 

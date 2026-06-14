@@ -15,6 +15,7 @@ private slots:
     void cleanup();
     void usesEnvironmentDataDirectory();
     void summarizeAsyncRejectsEmptyRequirement();
+    void summarizeContextAsyncUsesProvidedContext();
     void completingEventMovesRowInsteadOfResettingModel();
     void deletingEventCanBeUndone();
     void togglingEventCanBeUndone();
@@ -79,6 +80,25 @@ void QtNoteAppTests::summarizeAsyncRejectsEmptyRequirement() {
     const QString result = spy.takeFirst().at(0).toString();
     QVERIFY2(result.contains(QStringLiteral("总结要求")), qPrintable(result));
 }
+
+void QtNoteAppTests::summarizeContextAsyncUsesProvidedContext() {
+    QTemporaryDir dir = makeIsolatedDataDir();
+    useDataDir(dir);
+    NoteApp app;
+    QSignalSpy spy(&app, &NoteApp::summaryReady);
+
+    app.summarizeContextAsync(QStringLiteral("总结项目"), QStringLiteral("项目摘要上下文\n标题：产品重构"));
+
+    if (spy.count() == 0) {
+        QVERIFY(spy.wait(5000));
+    }
+    QCOMPARE(spy.count(), 1);
+    QFile file(dir.filePath(QStringLiteral("summary-history.md")));
+    QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString history = QString::fromUtf8(file.readAll());
+    QVERIFY2(history.contains(QStringLiteral("产品重构")), qPrintable(history));
+}
+
 
 void QtNoteAppTests::completingEventMovesRowInsteadOfResettingModel() {
     QTemporaryDir dir = makeIsolatedDataDir();
@@ -263,7 +283,7 @@ void QtNoteAppTests::exportsJsonAndImportsItBack() {
     app.addEvent(QStringLiteral("json backup item"));
 
     QVERIFY(app.exportJson());
-    QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("notes-export.json"))));
+    QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("stickies-export.json"))));
 
     app.clearAllNotes();
     QCOMPARE(app.rowCount(), 0);
@@ -281,11 +301,11 @@ void QtNoteAppTests::exportsMarkdownSummary() {
 
     QVERIFY(app.exportMarkdown());
 
-    QFile file(dir.filePath(QStringLiteral("notes-export.md")));
+    QFile file(dir.filePath(QStringLiteral("stickies-export.md")));
     QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
     const QString markdown = QString::fromUtf8(file.readAll());
     QVERIFY2(markdown.contains(QStringLiteral("markdown item")), qPrintable(markdown));
-    QVERIFY2(markdown.contains(QStringLiteral("# ChronoNotes 导出")), qPrintable(markdown));
+    QVERIFY2(markdown.contains(QStringLiteral("# ChronoNotes 便签导出")), qPrintable(markdown));
 }
 
 void QtNoteAppTests::completingRecurringEventCreatesNextOccurrence() {

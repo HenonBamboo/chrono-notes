@@ -1,4 +1,4 @@
-pragma ComponentBehavior: Bound
+﻿pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -6,17 +6,19 @@ import QtQuick.Controls
 Item {
     id: panel
 
+    readonly property ChronoTokens tokens: ChronoTokens {}
+
     property var model
     property int totalCount: 0
     property int completedCount: 0
     property bool hasVisibleRows: false
     property string stageLabel: ""
     property bool overlayOpen: false
-    property color blueColor: "#2d68c7"
-    property color accentColor: "#f4bf30"
-    property color cardColor: "#fffef7"
-    property color inkColor: "#071426"
-    property color mutedColor: "#64748b"
+    property color blueColor: tokens.accentBlue
+    property color accentColor: tokens.accentYellow
+    property color cardColor: tokens.card
+    property color inkColor: tokens.ink
+    property color mutedColor: tokens.muted
     property var collapsedSections: ({})
     property int archiveAutoCollapseThreshold: 6
 
@@ -65,9 +67,10 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 26
-        color: "#12fffef7"
-        border.width: 0
+        radius: tokens.radiusLg
+        color: "#22fffef7"
+        border.width: 1
+        border.color: tokens.lineSoft
         antialiasing: true
     }
 
@@ -76,8 +79,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.leftMargin: 4
-        anchors.rightMargin: 4
+        anchors.leftMargin: tokens.space1
+        anchors.rightMargin: tokens.space1
         totalCount: panel.totalCount
         completedCount: panel.completedCount
         blueColor: panel.blueColor
@@ -98,7 +101,7 @@ Item {
         anchors.bottomMargin: 8
         clip: true
         model: panel.model
-        spacing: compact ? 8 : 10
+        spacing: compact ? 7 : 8
         boundsBehavior: Flickable.DragAndOvershootBounds
         interactive: needsScroll
         reuseItems: false
@@ -107,7 +110,7 @@ Item {
         section.delegate: Item {
             required property string section
             width: ListView.view.width
-            height: 34
+            height: 30
 
             Text {
                 anchors.left: parent.left
@@ -116,10 +119,10 @@ Item {
                 anchors.rightMargin: 16
                 anchors.verticalCenter: parent.verticalCenter
                 text: panel.sectionTitle(parent.section)
-                color: "#40577a"
-                font.pixelSize: 12
+                color: panel.mutedColor
+                font.pixelSize: tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 elide: Text.ElideRight
                 renderType: Text.NativeRendering
             }
@@ -141,7 +144,7 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             contentItem: Rectangle {
                 radius: 4
-                color: "#9aa36d"
+                color: tokens.mutedSoft
             }
             background: Rectangle { color: "transparent" }
         }
@@ -188,13 +191,13 @@ Item {
             anchors.centerIn: parent
             width: Math.min(parent.width - 60, 430)
             visible: panel.emptyStateVisible()
-            text: panel.stageLabel + "还没有事件。\n写下一件真正要做的事就够了。"
-            color: "#8290a7"
+            text: panel.stageLabel + "还没有便签。\n写下一件真正要做的事就够了。"
+            color: tokens.mutedSoft
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             font.pixelSize: 14
             lineHeight: 1.4
-            font.family: "Microsoft YaHei UI"
+            font.family: tokens.fontUi
             renderType: Text.NativeRendering
         }
     }

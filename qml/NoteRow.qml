@@ -1,8 +1,10 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 
 Rectangle {
     id: row
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     required property int eventId
     required property string text
@@ -15,10 +17,10 @@ Rectangle {
     required property string highlightedText
     required property string repeat
 
-    property color cardColor: "#fffef7"
-    property color inkColor: "#172033"
-    property color mutedColor: "#6c7890"
-    property color blueColor: "#2f68c9"
+    property color cardColor: tokens.card
+    property color inkColor: tokens.ink
+    property color mutedColor: tokens.muted
+    property color blueColor: tokens.accentBlue
     property bool compact: false
     property bool editing: false
     property bool expanded: false
@@ -29,8 +31,8 @@ Rectangle {
                                  : repeat === "yearly" ? "每年"
                                  : ""
     property bool hovering: rowHover.containsMouse || actionRow.hovering
-    property int contentInset: archive ? 18 : 20
-    property int actionGutter: archive ? 84 : 148
+    property int contentInset: archive ? 16 : 18
+    property int actionGutter: archive ? 94 : 150
 
     signal toggleRequested()
     signal deleteRequested()
@@ -62,10 +64,23 @@ Rectangle {
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: row.archive ? 18 : 20
-        color: row.archive ? "#9ffffbed" : row.completed ? "#f9f7e9" : row.cardColor
+        radius: row.archive ? tokens.radiusMd : tokens.radiusMd
+        color: row.archive ? "#99fffbea" : row.completed ? "#99fffbea" : row.cardColor
+        border.width: 1
+        border.color: row.hovering ? "#55f4bf30" : tokens.lineSoft
         antialiasing: true
         clip: true
+    }
+
+    Rectangle {
+        width: 3
+        radius: 2
+        anchors.left: card.left
+        anchors.top: card.top
+        anchors.bottom: card.bottom
+        color: row.archive ? tokens.mutedSoft : row.completed ? row.blueColor : tokens.accentYellow
+        opacity: row.hovering || row.completed ? 0.95 : 0
+        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
     }
 
     function startEdit() {
@@ -113,9 +128,9 @@ Rectangle {
             width: parent.width
             text: row.highlightedText.length > 0 ? row.highlightedText : row.text
             textFormat: Text.StyledText
-            color: row.completed ? "#526078" : row.inkColor
-            font.pixelSize: row.compact ? 14 : 16
-            font.family: "Microsoft YaHei UI"
+            color: row.completed ? tokens.muted : row.inkColor
+            font.pixelSize: row.compact ? 13 : 15
+            font.family: tokens.fontUi
             font.weight: Font.Bold
             maximumLineCount: row.expanded ? 8 : (row.compact ? 1 : 3)
             elide: row.expanded ? Text.ElideNone : Text.ElideRight
@@ -130,7 +145,7 @@ Rectangle {
             text: row.repeatLabel.length > 0 ? row.meta + " · 重复：" + row.repeatLabel : row.meta
             color: row.mutedColor
             font.pixelSize: 11
-            font.family: "Microsoft YaHei UI"
+            font.family: tokens.fontUi
             elide: Text.ElideRight
             renderType: Text.NativeRendering
         }
@@ -144,16 +159,16 @@ Rectangle {
                 width: 18
                 height: 18
                 radius: 7
-                color: row.blueColor
+                color: tokens.accentBlueSoft
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
                     text: "✓"
-                    color: "#ffffff"
+                    color: row.blueColor
                     font.pixelSize: 13
                     font.weight: Font.Bold
-                    font.family: "Microsoft YaHei UI"
+                    font.family: tokens.fontUi
                     renderType: Text.NativeRendering
                 }
             }
@@ -164,7 +179,7 @@ Rectangle {
                 color: row.blueColor
                 font.pixelSize: row.compact ? 11 : 12
                 font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 elide: Text.ElideRight
                 renderType: Text.NativeRendering
                 anchors.verticalCenter: parent.verticalCenter
@@ -190,16 +205,16 @@ Rectangle {
                 width: 22
                 height: 22
                 radius: 8
-                color: "#e8eef8"
+                color: tokens.lineSoft
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
                     text: "收"
-                    color: "#53647f"
+                    color: tokens.muted
                     font.pixelSize: 11
                     font.weight: Font.Bold
-                    font.family: "Microsoft YaHei UI"
+                    font.family: tokens.fontUi
                     renderType: Text.NativeRendering
                 }
             }
@@ -207,9 +222,9 @@ Rectangle {
             Text {
                 width: parent.width - 31
                 text: row.text
-                color: "#46566f"
+                color: tokens.muted
                 font.pixelSize: row.compact ? 13 : 15
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 font.weight: Font.DemiBold
                 maximumLineCount: row.expanded ? 6 : 2
                 elide: row.expanded ? Text.ElideNone : Text.ElideRight
@@ -223,9 +238,9 @@ Rectangle {
         Text {
             width: parent.width
             text: row.meta
-            color: "#738197"
+            color: tokens.mutedSoft
             font.pixelSize: 11
-            font.family: "Microsoft YaHei UI"
+            font.family: tokens.fontUi
             maximumLineCount: row.expanded ? 2 : 1
             elide: Text.ElideRight
             renderType: Text.NativeRendering
@@ -245,15 +260,15 @@ Rectangle {
         anchors.bottomMargin: 9
         wrapMode: TextEdit.WrapAnywhere
         font.pixelSize: 15
-        font.family: "Microsoft YaHei UI"
+        font.family: tokens.fontUi
         color: row.inkColor
         selectedTextColor: row.inkColor
-        selectionColor: "#f4d676"
+        selectionColor: tokens.accentYellowSoft
         renderType: Text.NativeRendering
         background: Rectangle {
-            radius: 14
-            color: "#fffbea"
-            border.color: "#66d9ad2c"
+            radius: tokens.radiusMd
+            color: tokens.cardQuiet
+            border.color: "#66f4bf30"
             border.width: 1
         }
         Keys.onPressed: function(event) {
@@ -277,7 +292,7 @@ Rectangle {
         anchors.verticalCenter: card.verticalCenter
         spacing: 8
         visible: !row.editing
-        opacity: row.hovering ? 1 : 0
+        opacity: row.hovering ? 1 : 0.74
         z: 4
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
@@ -292,17 +307,17 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: completeButton.text
-                color: "#c93636"
+                color: completeButton.hovered ? row.blueColor : tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: completeButton.hovered ? "#fff0d5" : "#00ffffff"
+                color: completeButton.hovered ? tokens.accentBlueSoft : "#00ffffff"
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
             scale: completeButton.pressed ? 0.94 : completeButton.hovered ? 1.05 : 1
@@ -320,17 +335,17 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: deleteButton.text
-                color: "#c93636"
+                color: deleteButton.hovered ? tokens.danger : tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: deleteButton.hovered ? "#fff1f1" : "#00ffffff"
+                color: deleteButton.hovered ? tokens.dangerSoft : "#00ffffff"
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
             scale: deleteButton.pressed ? 0.94 : deleteButton.hovered ? 1.05 : 1
@@ -348,17 +363,17 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: viewButton.text
-                color: "#c93636"
+                color: viewButton.hovered ? row.blueColor : tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
+                font.family: tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: viewButton.hovered ? "#fff1f1" : "#00ffffff"
+                color: viewButton.hovered ? tokens.accentBlueSoft : "#00ffffff"
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
             scale: viewButton.pressed ? 0.94 : viewButton.hovered ? 1.05 : 1

@@ -2,16 +2,20 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ColumnLayout {
-    id: root
+Rectangle {
+    id: settingsPanel
+    objectName: "settingsPanelSurface"
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     property alias apiUrl: apiUrlField.text
     property alias apiKey: apiKeyField.text
-    property alias modelName: modelNameField.text
+    property alias modelName: modelField.text
     property bool clearAllArmed: false
     property bool apiExpanded: true
-    property bool dataExpanded: false
-    property bool inputActiveFocus: apiUrlField.activeFocus || apiKeyField.activeFocus || modelNameField.activeFocus
+    property bool dataExpanded: true
+    property bool inputActiveFocus: apiUrlField.activeFocus || apiKeyField.activeFocus || modelField.activeFocus
+    property color surfaceColor: tokens.paper
 
     signal saveRequested(string url, string key, string model)
     signal clearCompletedRequested()
@@ -22,18 +26,22 @@ ColumnLayout {
     signal importJsonRequested()
     signal exportMarkdownRequested()
 
-    spacing: 14
+    color: surfaceColor
+    radius: tokens.radiusLg
+    border.color: Qt.rgba(106 / 255, 138 / 255, 91 / 255, 0.18)
+    border.width: 1
 
     function releaseInputFocus() {
         apiUrlField.focus = false
         apiKeyField.focus = false
-        modelNameField.focus = false
+        modelField.focus = false
     }
 
     function resetTextViews() {
+        releaseInputFocus()
         apiUrlField.cursorPosition = 0
         apiKeyField.cursorPosition = 0
-        modelNameField.cursorPosition = 0
+        modelField.cursorPosition = 0
     }
 
     function apiUrlCursorPosition() {
@@ -56,303 +64,235 @@ ColumnLayout {
         dataExpanded = !dataExpanded
     }
 
-    onVisibleChanged: if (visible) Qt.callLater(resetTextViews)
-
     ScrollView {
-        id: scroll
-        Layout.fillWidth: true
-        Layout.fillHeight: true
+        anchors.fill: parent
+        anchors.margins: 20
         clip: true
-        contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
         ColumnLayout {
-            width: scroll.availableWidth
+            width: settingsPanel.width - 40
             spacing: 14
 
             Text {
-                Layout.fillWidth: true
+                objectName: "settingsTitle"
                 text: "设置"
-                color: "#071426"
-                font.pixelSize: 23
-                font.weight: Font.Bold
-                font.family: "Microsoft YaHei UI"
-                renderType: Text.NativeRendering
+                color: settingsPanel.tokens.ink
+                font.pixelSize: 22
+                font.weight: Font.DemiBold
+                Layout.fillWidth: true
             }
 
             Rectangle {
+                objectName: "settingsApiCard"
                 Layout.fillWidth: true
-                Layout.preferredHeight: apiColumn.implicitHeight + 28
-                radius: 18
-                color: "#88ffffff"
+                color: "#bffffef7"
+                radius: settingsPanel.tokens.radiusMd
+                border.color: "#2288c57f"
+                implicitHeight: apiHeader.height + (apiSection.visible ? apiSection.implicitHeight + 14 : 0) + 18
 
                 ColumnLayout {
-                    id: apiColumn
                     anchors.fill: parent
                     anchors.margins: 14
                     spacing: 10
 
                     RowLayout {
+                        id: apiHeader
                         Layout.fillWidth: true
+                        spacing: 8
 
                         Text {
-                            Layout.fillWidth: true
+                            objectName: "settingsApiTitle"
                             text: "AI 接口"
-                            color: "#071426"
-                            font.pixelSize: 15
-                            font.weight: Font.Bold
-                            font.family: "Microsoft YaHei UI"
-                            renderType: Text.NativeRendering
-                        }
-
-                        Text {
-                            text: root.apiExpanded ? "收起" : "展开"
-                            color: "#2d68c7"
-                            font.pixelSize: 12
+                            color: settingsPanel.tokens.ink
+                            font.pixelSize: 16
                             font.weight: Font.DemiBold
-                            font.family: "Microsoft YaHei UI"
-                            renderType: Text.NativeRendering
+                            Layout.fillWidth: true
                         }
 
-                        TapHandler {
-                            onTapped: root.toggleApiSection()
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.apiExpanded
-                        text: "兼容 OpenAI 的接口配置。保存后，智能摘要会使用这里的地址、密钥和模型。"
-                        color: "#607086"
-                        font.pixelSize: 12
-                        wrapMode: Text.WordWrap
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                    }
-
-                    TextField {
-                        id: apiUrlField
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 42
-                        visible: root.apiExpanded
-                        placeholderText: "API URL"
-                        leftPadding: 16
-                        rightPadding: 16
-                        font.pixelSize: 13
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                        background: Rectangle {
-                            radius: 14
-                            color: "#99ffffff"
-                            border.color: apiUrlField.activeFocus ? "#2d68c7" : "transparent"
-                            border.width: 1
+                        ToolPill {
+                            objectName: "settingsApiToggle"
+                            text: settingsPanel.apiExpanded ? "收起" : "展开"
+                            widthHint: 54
+                            onClicked: settingsPanel.toggleApiSection()
                         }
                     }
 
-                    TextField {
-                        id: apiKeyField
+                    ColumnLayout {
+                        id: apiSection
+                        visible: settingsPanel.apiExpanded
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 42
-                        visible: root.apiExpanded
-                        placeholderText: "API Key"
-                        echoMode: TextInput.PasswordEchoOnEdit
-                        leftPadding: 16
-                        rightPadding: 16
-                        font.pixelSize: 13
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                        background: Rectangle {
-                            radius: 14
-                            color: "#99ffffff"
-                            border.color: apiKeyField.activeFocus ? "#2d68c7" : "transparent"
-                            border.width: 1
-                        }
-                    }
+                        spacing: 8
 
-                    TextField {
-                        id: modelNameField
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 42
-                        visible: root.apiExpanded
-                        placeholderText: "Model"
-                        leftPadding: 16
-                        rightPadding: 16
-                        font.pixelSize: 13
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                        background: Rectangle {
-                            radius: 14
-                            color: "#99ffffff"
-                            border.color: modelNameField.activeFocus ? "#2d68c7" : "transparent"
-                            border.width: 1
+                        TextField {
+                            id: apiUrlField
+                            objectName: "apiUrlField"
+                            Layout.fillWidth: true
+                            placeholderText: "API 地址"
+                            background: Rectangle {
+                                radius: settingsPanel.tokens.radiusSm
+                                color: "#ccfffef7"
+                                border.width: 1
+                                border.color: apiUrlField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
+                            }
+                        }
+
+                        TextField {
+                            id: apiKeyField
+                            objectName: "apiKeyField"
+                            Layout.fillWidth: true
+                            placeholderText: "API Key"
+                            echoMode: TextInput.Password
+                            background: Rectangle {
+                                radius: settingsPanel.tokens.radiusSm
+                                color: "#ccfffef7"
+                                border.width: 1
+                                border.color: apiKeyField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
+                            }
+                        }
+
+                        TextField {
+                            id: modelField
+                            objectName: "modelField"
+                            Layout.fillWidth: true
+                            placeholderText: "模型名称"
+                            background: Rectangle {
+                                radius: settingsPanel.tokens.radiusSm
+                                color: "#ccfffef7"
+                                border.width: 1
+                                border.color: modelField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
+                            }
+                        }
+
+                        ToolPill {
+                            objectName: "settingsSaveButton"
+                            text: "保存 AI 设置"
+                            widthHint: 116
+                            primary: true
+                            Layout.alignment: Qt.AlignRight
+                            onClicked: settingsPanel.saveRequested(apiUrlField.text, apiKeyField.text, modelField.text)
                         }
                     }
                 }
             }
 
             Rectangle {
+                objectName: "settingsDataCard"
                 Layout.fillWidth: true
-                Layout.preferredHeight: dataColumn.implicitHeight + 40
-                radius: 18
-                color: "#88ffffff"
+                color: "#bffffef7"
+                radius: settingsPanel.tokens.radiusMd
+                border.color: "#2288c57f"
+                implicitHeight: dataHeader.height + (dataSection.visible ? dataSection.implicitHeight + 14 : 0) + 18
 
                 ColumnLayout {
-                    id: dataColumn
                     anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 14
+                    anchors.margins: 14
+                    spacing: 10
 
                     RowLayout {
+                        id: dataHeader
                         Layout.fillWidth: true
+                        spacing: 8
 
                         Text {
-                            Layout.fillWidth: true
-                            text: "数据管理"
-                            color: "#071426"
-                            font.pixelSize: 15
-                            font.weight: Font.Bold
-                            font.family: "Microsoft YaHei UI"
-                            renderType: Text.NativeRendering
-                        }
-
-                        Text {
-                            text: root.dataExpanded ? "收起" : "展开"
-                            color: "#2d68c7"
-                            font.pixelSize: 12
+                            objectName: "settingsDataTitle"
+                            text: "便签数据"
+                            color: settingsPanel.tokens.ink
+                            font.pixelSize: 16
                             font.weight: Font.DemiBold
-                            font.family: "Microsoft YaHei UI"
-                            renderType: Text.NativeRendering
+                            Layout.fillWidth: true
                         }
 
-                        TapHandler {
-                            onTapped: root.toggleDataSection()
+                        ToolPill {
+                            objectName: "settingsDataToggle"
+                            text: settingsPanel.dataExpanded ? "收起" : "展开"
+                            widthHint: 54
+                            onClicked: settingsPanel.toggleDataSection()
                         }
                     }
 
-                    Text {
+                    ColumnLayout {
+                        id: dataSection
+                        visible: settingsPanel.dataExpanded
                         Layout.fillWidth: true
-                        visible: root.dataExpanded
-                        text: "清理会直接改数据；备份和恢复会打开文件选择窗口。"
-                        color: "#607086"
-                        font.pixelSize: 12
-                        wrapMode: Text.WordWrap
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                    }
+                        spacing: 10
 
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.dataExpanded
-                        text: "清理"
-                        color: "#40577a"
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                    }
-
-                    Flow {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: implicitHeight
-                        visible: root.dataExpanded
-                        spacing: 12
-
-                        ToolPill {
-                            text: "删当前已完成"
-                            widthHint: 104
-                            danger: true
-                            onClicked: root.clearCompletedRequested()
+                        Text {
+                            objectName: "settingsDataDescription"
+                            text: "这些操作只作用于便签数据，不影响项目树。"
+                            color: settingsPanel.tokens.muted
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
                         }
 
-                        ToolPill {
-                            text: "删全部已完成"
-                            widthHint: 104
-                            danger: true
-                            onClicked: root.clearCompletedAllRequested()
-                        }
+                        GridLayout {
+                            columns: settingsPanel.width < 520 ? 1 : 2
+                            columnSpacing: 10
+                            rowSpacing: 10
+                            Layout.fillWidth: true
 
-                        ToolPill {
-                            text: "清空当前"
-                            widthHint: 84
-                            danger: true
-                            onClicked: root.clearCurrentRequested()
-                        }
+                            ToolPill {
+                                objectName: "exportStickiesJsonButton"
+                                text: "导出便签 JSON"
+                                widthHint: 140
+                                Layout.fillWidth: true
+                                onClicked: settingsPanel.exportJsonRequested()
+                            }
 
-                        ToolPill {
-                            text: root.clearAllArmed ? "确认全删" : "全删"
-                            widthHint: 76
-                            danger: true
-                            onClicked: {
-                                if (root.clearAllArmed) {
-                                    root.clearAllRequested()
-                                    root.clearAllArmed = false
-                                } else {
-                                    root.clearAllArmed = true
+                            ToolPill {
+                                objectName: "importStickiesJsonButton"
+                                text: "导入便签 JSON"
+                                widthHint: 140
+                                Layout.fillWidth: true
+                                onClicked: settingsPanel.importJsonRequested()
+                            }
+
+                            ToolPill {
+                                objectName: "exportStickiesMarkdownButton"
+                                text: "导出便签 Markdown"
+                                widthHint: 160
+                                Layout.fillWidth: true
+                                onClicked: settingsPanel.exportMarkdownRequested()
+                            }
+
+                            ToolPill {
+                                objectName: "clearCompletedStickiesButton"
+                                text: "清理已完成便签"
+                                widthHint: 150
+                                danger: true
+                                Layout.fillWidth: true
+                                onClicked: settingsPanel.clearCompletedRequested()
+                            }
+
+                            ToolPill {
+                                objectName: "clearCurrentStickiesButton"
+                                text: "清空当前便签阶段"
+                                widthHint: 150
+                                danger: true
+                                Layout.fillWidth: true
+                                onClicked: settingsPanel.clearCurrentRequested()
+                            }
+
+                            ToolPill {
+                                objectName: "clearAllStickiesButton"
+                                text: settingsPanel.clearAllArmed ? "确认清空全部便签" : "清空全部便签"
+                                widthHint: 150
+                                danger: true
+                                Layout.fillWidth: true
+                                onClicked: {
+                                    if (settingsPanel.clearAllArmed) {
+                                        settingsPanel.clearAllRequested()
+                                        settingsPanel.clearAllArmed = false
+                                    } else {
+                                        settingsPanel.clearAllArmed = true
+                                    }
                                 }
                             }
                         }
                     }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.dataExpanded
-                        text: "备份 / 恢复"
-                        color: "#40577a"
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                        font.family: "Microsoft YaHei UI"
-                        renderType: Text.NativeRendering
-                    }
-
-                    Flow {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: implicitHeight
-                        visible: root.dataExpanded
-                        spacing: 12
-
-                        ToolPill {
-                            text: "导出 JSON"
-                            widthHint: 92
-                            onClicked: root.exportJsonRequested()
-                        }
-
-                        ToolPill {
-                            text: "导入 JSON"
-                            widthHint: 92
-                            onClicked: root.importJsonRequested()
-                        }
-
-                        ToolPill {
-                            text: "导出 MD"
-                            widthHint: 82
-                            onClicked: root.exportMarkdownRequested()
-                        }
-                    }
                 }
             }
-        }
-    }
-
-    Button {
-        id: saveSettings
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        hoverEnabled: true
-        onClicked: root.saveRequested(apiUrlField.text, apiKeyField.text, modelNameField.text)
-        contentItem: Text {
-            text: "保存设置"
-            color: "#ffffff"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            font.pixelSize: 14
-            font.weight: Font.Bold
-            font.family: "Microsoft YaHei UI"
-            renderType: Text.NativeRendering
-        }
-        background: Rectangle {
-            radius: 16
-            color: saveSettings.hovered ? "#245db6" : "#2d68c7"
-            Behavior on color { ColorAnimation { duration: 130 } }
         }
     }
 }

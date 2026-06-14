@@ -53,7 +53,9 @@ qt_add_executable(ChronoNotes WIN32
 qt_add_qml_module(ChronoNotes
     URI ChronoNotes
     VERSION 1.0
+    NO_IMPORT_SCAN
     QML_FILES
+        qml/ChronoTokens.qml
         qml/Main.qml
         qml/AppTitleBar.qml
         qml/StageTabs.qml

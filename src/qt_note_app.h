@@ -115,6 +115,7 @@ public:
     Q_INVOKABLE int previewImportJsonEventCount(const QUrl &fileUrl);
     Q_INVOKABLE QString summarize(const QString &requirement);
     Q_INVOKABLE void summarizeAsync(const QString &requirement);
+    Q_INVOKABLE void summarizeContextAsync(const QString &requirement, const QString &context);
 
 signals:
     void stageChanged();

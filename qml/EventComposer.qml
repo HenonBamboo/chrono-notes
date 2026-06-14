@@ -1,19 +1,21 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
 RowLayout {
     id: composer
 
+    readonly property ChronoTokens tokens: ChronoTokens {}
+
     property int stage: 0
-    property color inkColor: "#071426"
+    property color inkColor: tokens.ink
     property alias inputActiveFocus: input.activeFocus
 
     signal addRequested(string text)
     signal emptySubmitted()
 
-    height: 42
-    spacing: 10
+    height: 40
+    spacing: tokens.space2
 
     function forceComposerFocus() {
         input.forceActiveFocus()
@@ -28,17 +30,17 @@ RowLayout {
         id: input
         Layout.fillWidth: true
         Layout.fillHeight: true
-        placeholderText: composer.stage === 0 ? "输入新事件，按 Enter 添加" : "输入本阶段计划，按 Enter 添加"
+        placeholderText: composer.stage === 0 ? "输入新便签，按 Enter 添加" : "输入本阶段便签，按 Enter 添加"
         font.pixelSize: 14
-        font.family: "Microsoft YaHei UI"
+        font.family: tokens.fontUi
         color: composer.inkColor
-        selectionColor: "#f4d676"
+        selectionColor: tokens.accentYellowSoft
         selectedTextColor: composer.inkColor
         renderType: Text.NativeRendering
         background: Rectangle {
-            radius: 15
-            color: "#ccfffef7"
-            border.color: input.activeFocus ? "#662d68c7" : "#226a5e2a"
+            radius: tokens.radiusMd
+            color: "#ddfffef7"
+            border.color: input.activeFocus ? "#662d68c7" : tokens.lineSoft
             border.width: 1
             Behavior on border.color { ColorAnimation { duration: 150 } }
         }

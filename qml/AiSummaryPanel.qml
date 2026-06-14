@@ -4,202 +4,225 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ColumnLayout {
-    id: root
+Rectangle {
+    id: surface
+    objectName: "aiPanelSurface"
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     property bool aiBusy: false
     property string aiResultText: ""
+    property string summaryScope: "stickies"
+    property string summaryContextText: ""
+    property bool summaryEmpty: false
+    property color surfaceColor: tokens.paper
+    readonly property bool projectScope: summaryScope === "projects"
     property alias inputActiveFocus: requirement.activeFocus
 
-    signal runRequested(string requirement)
+    signal runRequested(string requirement, string contextText)
 
-    spacing: 13
+    color: surface.surfaceColor
+    radius: tokens.radiusLg
+    border.width: 0
+
+    function defaultPrompt() {
+        if (projectScope)
+            return "请总结当前项目树的推进情况，指出未完成任务、层级风险和下一步优先级。"
+        return "请总结当前便签视图的完成情况，指出未完成事项的优先级，并给出下一步建议。"
+    }
 
     function releaseInputFocus() {
         requirement.focus = false
     }
 
-    Text {
-        text: "智能摘要"
-        color: "#071426"
-        font.pixelSize: 23
-        font.weight: Font.Bold
-        font.family: "Microsoft YaHei UI"
-        renderType: Text.NativeRendering
+    function runSummary() {
+        if (aiBusy || summaryEmpty)
+            return
+        runRequested(requirement.text, projectScope ? summaryContextText : "")
     }
 
-    Text {
-        Layout.fillWidth: true
-        text: "从右侧挤出，主内容同步让位；再次点击智能摘要即可收起。"
-        color: "#607086"
-        font.pixelSize: 13
-        font.family: "Microsoft YaHei UI"
-        wrapMode: Text.WordWrap
-        renderType: Text.NativeRendering
-    }
+    onProjectScopeChanged: requirement.text = defaultPrompt()
 
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 134
-        radius: 18
-        color: "#99ffffff"
-        border.color: "transparent"
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: surface.tokens.space3
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 8
-
-            Text {
-                text: "总结要求"
-                color: "#172033"
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
-                renderType: Text.NativeRendering
-            }
-
-            TextArea {
-                id: requirement
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                text: "请总结当前阶段的完成情况，指出未完成事项的优先级，并给出下一步建议。"
-                wrapMode: TextEdit.WrapAnywhere
-                font.pixelSize: 13
-                font.family: "Microsoft YaHei UI"
-                color: "#172033"
-                renderType: Text.NativeRendering
-                background: Rectangle {
-                    radius: 14
-                    color: "#b8ffffff"
-                    border.color: requirement.activeFocus ? "#2d68c7" : "transparent"
-                    border.width: 1
-                }
-            }
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Repeater {
-            model: [
-                { label: "快速", prompt: "请用三句话总结当前阶段的完成情况，并列出最重要的未完成事项。" },
-                { label: "复盘", prompt: "请总结完成情况、卡点原因，并给出下一步优先级建议。" },
-                { label: "计划", prompt: "请把未完成事项整理成下一阶段的清晰计划，按优先级排序。" }
-            ]
-            delegate: ToolPill {
-                required property var modelData
-                text: modelData.label
-                widthHint: 58
-                onClicked: requirement.text = modelData.prompt
-            }
-        }
-    }
-
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 88
-        radius: 18
-        color: "#99ffffff"
-        border.color: "transparent"
-
-        Column {
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 7
-
-            Text {
-                text: "阶段判断"
-                color: "#172033"
-                font.pixelSize: 14
-                font.weight: Font.DemiBold
-                font.family: "Microsoft YaHei UI"
-                renderType: Text.NativeRendering
-            }
-
-            Text {
-                width: parent.width
-                text: "摘要会结合当前时间视图、计划内容和自动收纳内容生成。"
-                color: "#5f6f86"
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-                font.family: "Microsoft YaHei UI"
-                renderType: Text.NativeRendering
-            }
-        }
-    }
-
-    Button {
-        id: runAi
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        enabled: !root.aiBusy
-        hoverEnabled: true
-        clip: true
-        onClicked: root.runRequested(requirement.text)
-        contentItem: Text {
-            text: root.aiBusy ? "生成中..." : "生成摘要"
-            color: "#ffffff"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            font.pixelSize: 14
+        Text {
+            objectName: "aiPanelTitle"
+            text: surface.projectScope ? "项目摘要" : "便签摘要"
+            color: surface.tokens.ink
+            font.pixelSize: 23
             font.weight: Font.Bold
-            font.family: "Microsoft YaHei UI"
+            font.family: surface.tokens.fontUi
             renderType: Text.NativeRendering
         }
-        background: Rectangle {
-            id: runBg
-            radius: 16
-            color: runAi.hovered ? "#245db6" : "#2d68c7"
 
-            Rectangle {
-                width: parent.width * 0.36
-                height: parent.height + 8
-                y: -4
-                opacity: 0.45
-                rotation: 12
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "#00ffffff" }
-                    GradientStop { position: 0.5; color: "#ccffffff" }
-                    GradientStop { position: 1.0; color: "#00ffffff" }
+        Text {
+            objectName: "aiPanelDescription"
+            Layout.fillWidth: true
+            text: surface.projectScope
+                  ? "根据当前项目树的选中节点、路径、进度、具体内容和任务数量生成摘要。"
+                  : "根据当前便签视图、阶段、搜索结果和自动收纳内容生成摘要。"
+            color: surface.tokens.muted
+            font.pixelSize: 13
+            font.family: surface.tokens.fontUi
+            wrapMode: Text.WordWrap
+            renderType: Text.NativeRendering
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 132
+            radius: surface.tokens.radiusLg
+            color: "#99ffffff"
+            border.color: "transparent"
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: surface.tokens.space3
+                spacing: surface.tokens.space2
+
+                Text {
+                    text: "摘要要求"
+                    color: surface.tokens.ink
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    font.family: surface.tokens.fontUi
+                    renderType: Text.NativeRendering
                 }
-                SequentialAnimation on x {
-                    running: root.visible
-                    loops: Animation.Infinite
-                    NumberAnimation { from: -runBg.width * 0.5; to: runBg.width + 20; duration: 1800; easing.type: Easing.InOutCubic }
-                    PauseAnimation { duration: 1000 }
+
+                TextArea {
+                    id: requirement
+                    objectName: "aiRequirementInput"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    text: surface.defaultPrompt()
+                    wrapMode: TextEdit.WrapAnywhere
+                    font.pixelSize: 13
+                    font.family: surface.tokens.fontUi
+                    color: surface.tokens.ink
+                    renderType: Text.NativeRendering
+                    background: Rectangle {
+                        radius: surface.tokens.radiusMd
+                        color: "#b8ffffff"
+                        border.color: requirement.activeFocus ? surface.tokens.accentBlue : "transparent"
+                        border.width: 1
+                    }
                 }
             }
         }
-    }
 
-    Text {
-        text: "结果"
-        color: "#607086"
-        font.pixelSize: 12
-        font.family: "Microsoft YaHei UI"
-        renderType: Text.NativeRendering
-    }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: surface.tokens.space2
 
-    TextArea {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        readOnly: true
-        text: root.aiResultText
-        wrapMode: TextEdit.WrapAnywhere
-        placeholderText: "生成后的摘要会出现在这里。"
-        font.pixelSize: 13
-        font.family: "Microsoft YaHei UI"
-        color: "#172033"
-        renderType: Text.NativeRendering
-        background: Rectangle {
-            radius: 18
+            Repeater {
+                model: surface.projectScope ? [
+                    { label: "概况", prompt: "请用三句话总结项目树概况，并列出最需要推进的未完成任务。" },
+                    { label: "风险", prompt: "请找出当前项目或任务的主要卡点、缺口和下一步处理顺序。" },
+                    { label: "计划", prompt: "请把项目树整理成下一轮行动计划，按优先级排序。" }
+                ] : [
+                    { label: "快速", prompt: "请用三句话总结当前便签视图，并列出最重要的未完成事项。" },
+                    { label: "复盘", prompt: "请总结便签完成情况、卡点原因，并给出下一步优先级建议。" },
+                    { label: "计划", prompt: "请把未完成便签整理成下一阶段清晰计划，按优先级排序。" }
+                ]
+                delegate: ToolPill {
+                    required property var modelData
+                    text: modelData.label
+                    widthHint: 58
+                    onClicked: requirement.text = modelData.prompt
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 84
+            radius: surface.tokens.radiusLg
             color: "#99ffffff"
             border.color: "transparent"
-            border.width: 0
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: surface.tokens.space3
+                spacing: surface.tokens.space2
+
+                Text {
+                    text: surface.projectScope ? "项目上下文" : "便签上下文"
+                    color: surface.tokens.ink
+                    font.pixelSize: 14
+                    font.weight: Font.DemiBold
+                    font.family: surface.tokens.fontUi
+                    renderType: Text.NativeRendering
+                }
+
+                Text {
+                    objectName: "aiScopeHint"
+                    width: parent.width
+                    text: surface.projectScope
+                          ? (surface.summaryEmpty ? "先创建项目，再生成项目摘要。" : "会使用当前选中节点；未选中时总结整个项目树概况。")
+                          : "会结合当前阶段、搜索结果和自动收纳内容生成。"
+                    color: surface.tokens.muted
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                    font.family: surface.tokens.fontUi
+                    renderType: Text.NativeRendering
+                }
+            }
+        }
+
+        Button {
+            id: runAi
+            objectName: "aiRunButton"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            enabled: !surface.aiBusy && !surface.summaryEmpty
+            hoverEnabled: true
+            clip: true
+            onClicked: surface.runSummary()
+            contentItem: Text {
+                text: surface.aiBusy ? "生成中..." : "生成摘要"
+                color: "#ffffff"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                font.pixelSize: 14
+                font.weight: Font.Bold
+                font.family: surface.tokens.fontUi
+                renderType: Text.NativeRendering
+            }
+            background: Rectangle {
+                radius: surface.tokens.radiusMd
+                color: !runAi.enabled ? surface.tokens.mutedSoft
+                     : runAi.hovered ? "#245db6" : surface.tokens.accentBlue
+                Behavior on color { ColorAnimation { duration: 130 } }
+            }
+        }
+
+        Text {
+            text: "结果"
+            color: surface.tokens.muted
+            font.pixelSize: 12
+            font.family: surface.tokens.fontUi
+            renderType: Text.NativeRendering
+        }
+
+        TextArea {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            readOnly: true
+            text: surface.aiResultText
+            wrapMode: TextEdit.WrapAnywhere
+            placeholderText: "生成后的摘要会出现在这里。"
+            font.pixelSize: 13
+            font.family: surface.tokens.fontUi
+            color: surface.tokens.ink
+            renderType: Text.NativeRendering
+            background: Rectangle {
+                radius: surface.tokens.radiusLg
+                color: "#99ffffff"
+                border.color: "transparent"
+                border.width: 0
+            }
         }
     }
 }

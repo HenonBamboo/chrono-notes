@@ -31,11 +31,11 @@ static QByteArray build_request_body(const AppConfig *config, const wchar_t *req
     QJsonArray messages;
     messages.append(QJsonObject{
         {QStringLiteral("role"), QStringLiteral("system")},
-        {QStringLiteral("content"), QStringLiteral("你是便签总结助手，只基于用户提供的事件内容总结。")}
+        {QStringLiteral("content"), QStringLiteral("你是便签和项目总结助手，只基于用户提供的上下文内容总结。")}
     });
     messages.append(QJsonObject{
         {QStringLiteral("role"), QStringLiteral("user")},
-        {QStringLiteral("content"), QStringLiteral("用户要求：%1\n\n便签事件：\n%2")
+        {QStringLiteral("content"), QStringLiteral("用户要求：%1\n\n上下文内容：\n%2")
             .arg(from_wide(requirement), from_wide(notes_text))}
     });
 

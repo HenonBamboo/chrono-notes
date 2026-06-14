@@ -1,9 +1,11 @@
-pragma ComponentBehavior: Bound
+﻿pragma ComponentBehavior: Bound
 
 import QtQuick
 
 Item {
     id: tabs
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     property int stage: 0
     property bool allCompleted: false
@@ -23,7 +25,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 8
+        spacing: tokens.space2
 
         Repeater {
             model: 4
@@ -31,14 +33,14 @@ Item {
                 required property int index
                 text: tabs.stageName(index)
                 active: tabs.stage === index
-                widthHint: 48
+                widthHint: 50
                 onClicked: tabs.stageRequested(index)
             }
         }
 
         ToolPill {
             text: tabs.allCompleted ? "取消全选" : "全选完成"
-            widthHint: 70
+            widthHint: 76
             onClicked: tabs.toggleAllRequested()
         }
     }

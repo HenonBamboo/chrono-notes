@@ -80,4 +80,11 @@ TestCase {
     function test_emptyStateHidesWhenOnlyArchiveRowsExist() {
         compare(panel.emptyStateVisible(), false)
     }
+
+    function test_emptyStateHidesWhileOverlayIsOpen() {
+        panel.hasVisibleRows = false
+        panel.overlayOpen = true
+
+        compare(panel.emptyStateVisible(), false)
+    }
 }

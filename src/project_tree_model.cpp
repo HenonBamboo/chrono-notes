@@ -35,12 +35,23 @@ QVariant ProjectTreeModel::data(const QModelIndex &index, int role) const {
         case ParentIdRole: return node.parent_id;
         case TitleRole: return node.title;
         case KindRole: return node.kind;
-        case CompletedRole: return node.completed;
+        case CompletedRole: {
+            if (node.kind != QStringLiteral("task")) {
+                const int total = descendantTaskCount(node.id);
+                return total > 0 && completedDescendantTaskCount(node.id) == total;
+            }
+            if (hasChildren(node.id)) {
+                const int total = descendantTaskCount(node.id);
+                return total > 0 && completedDescendantTaskCount(node.id) == total;
+            }
+            return node.completed;
+        }
         case DepthRole: return row.depth;
         case ExpandedRole: return node.expanded;
         case ChildCountRole: return directChildCount(node.id);
         case TotalTasksRole: return descendantTaskCount(node.id);
         case CompletedTasksRole: return completedDescendantTaskCount(node.id);
+        case DescriptionRole: return node.description;
         default: return {};
     }
 }
@@ -56,14 +67,15 @@ QHash<int, QByteArray> ProjectTreeModel::roleNames() const {
         {ExpandedRole, "expanded"},
         {ChildCountRole, "childCount"},
         {TotalTasksRole, "totalTasks"},
-        {CompletedTasksRole, "completedTasks"}
+        {CompletedTasksRole, "completedTasks"},
+        {DescriptionRole, "description"}
     };
 }
 
 int ProjectTreeModel::totalTasks() const {
     int total = 0;
     for (const Node &node : nodes_) {
-        if (node.kind == QStringLiteral("task")) {
+        if (node.kind == QStringLiteral("task") && !hasChildren(node.id)) {
             ++total;
         }
     }
@@ -73,7 +85,7 @@ int ProjectTreeModel::totalTasks() const {
 int ProjectTreeModel::completedTasks() const {
     int total = 0;
     for (const Node &node : nodes_) {
-        if (node.kind == QStringLiteral("task") && node.completed) {
+        if (node.kind == QStringLiteral("task") && !hasChildren(node.id) && node.completed) {
             ++total;
         }
     }
@@ -97,7 +109,7 @@ int ProjectTreeModel::addProject(const QString &title) {
     }
     const qint64 now = QDateTime::currentSecsSinceEpoch();
     const int id = next_id_++;
-    nodes_.append(Node{id, 0, trimmed, QStringLiteral("project"), false, true, now, now});
+    nodes_.append(Node{id, 0, trimmed, QStringLiteral("project"), QString(), false, true, now, now});
     resetToRows({});
     save();
     return id;
@@ -113,7 +125,7 @@ int ProjectTreeModel::addChild(int parentId, const QString &title) {
     const int id = next_id_++;
     nodes_[parent_index].expanded = true;
     nodes_[parent_index].updated_at = now;
-    nodes_.append(Node{id, parentId, trimmed, QStringLiteral("task"), false, true, now, now});
+    nodes_.append(Node{id, parentId, trimmed, QStringLiteral("task"), QString(), false, true, now, now});
     resetToRows({});
     save();
     return id;
@@ -132,9 +144,21 @@ bool ProjectTreeModel::updateTitle(int id, const QString &title) {
     return true;
 }
 
+bool ProjectTreeModel::updateDescription(int id, const QString &description) {
+    const int index = findNodeIndex(id);
+    if (index < 0 || nodes_[index].description == description) {
+        return false;
+    }
+    nodes_[index].description = description;
+    nodes_[index].updated_at = QDateTime::currentSecsSinceEpoch();
+    resetToRows({});
+    save();
+    return true;
+}
+
 bool ProjectTreeModel::toggleComplete(int id) {
     const int index = findNodeIndex(id);
-    if (index < 0 || nodes_[index].kind == QStringLiteral("project")) {
+    if (index < 0 || nodes_[index].kind == QStringLiteral("project") || hasChildren(id)) {
         return false;
     }
     nodes_[index].completed = !nodes_[index].completed;
@@ -195,7 +219,7 @@ int ProjectTreeModel::descendantTaskCount(int id) const {
     if (index < 0) {
         return 0;
     }
-    int total = nodes_.at(index).kind == QStringLiteral("task") ? 1 : 0;
+    int total = nodes_.at(index).kind == QStringLiteral("task") && !hasChildren(id) ? 1 : 0;
     for (const Node &node : nodes_) {
         if (node.parent_id == id) {
             total += descendantTaskCount(node.id);
@@ -209,7 +233,7 @@ int ProjectTreeModel::completedDescendantTaskCount(int id) const {
     if (index < 0) {
         return 0;
     }
-    int total = nodes_.at(index).kind == QStringLiteral("task") && nodes_.at(index).completed ? 1 : 0;
+    int total = nodes_.at(index).kind == QStringLiteral("task") && !hasChildren(id) && nodes_.at(index).completed ? 1 : 0;
     for (const Node &node : nodes_) {
         if (node.parent_id == id) {
             total += completedDescendantTaskCount(node.id);
@@ -263,6 +287,7 @@ void ProjectTreeModel::save() const {
         item.insert(QStringLiteral("parentId"), node.parent_id);
         item.insert(QStringLiteral("title"), node.title);
         item.insert(QStringLiteral("kind"), node.kind);
+        item.insert(QStringLiteral("description"), node.description);
         item.insert(QStringLiteral("completed"), node.completed);
         item.insert(QStringLiteral("expanded"), node.expanded);
         item.insert(QStringLiteral("createdAt"), QString::number(node.created_at));
@@ -297,6 +322,7 @@ void ProjectTreeModel::load() {
         node.parent_id = item.value(QStringLiteral("parentId")).toInt();
         node.title = item.value(QStringLiteral("title")).toString().trimmed();
         node.kind = item.value(QStringLiteral("kind")).toString(QStringLiteral("task"));
+        node.description = item.value(QStringLiteral("description")).toString();
         node.completed = item.value(QStringLiteral("completed")).toBool();
         node.expanded = item.value(QStringLiteral("expanded")).toBool(true);
         node.created_at = item.value(QStringLiteral("createdAt")).toString().toLongLong();

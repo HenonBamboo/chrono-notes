@@ -1,8 +1,10 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Window
 
 Rectangle {
     id: titlebar
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
 
     property string titleText: ""
     property string activePanel: ""
@@ -35,16 +37,6 @@ Rectangle {
         spacing: 9
         clip: true
 
-        Repeater {
-            model: 3
-            Rectangle {
-                width: 8
-                height: 8
-                radius: 4
-                color: "#c6d0df"
-            }
-        }
-
         Image {
             width: 24
             height: 24
@@ -54,30 +46,20 @@ Rectangle {
         }
 
         ToolPill {
-            text: "笔记"
+            objectName: "stickiesWorkspaceButton"
+            text: "便签"
             widthHint: 48
             active: titlebar.workspace === "notes"
             onClicked: titlebar.workspaceRequested("notes")
         }
 
         ToolPill {
+            objectName: "projectsWorkspaceButton"
             text: "项目树"
             widthHint: 62
             active: titlebar.workspace === "projects"
             primary: titlebar.workspace === "projects"
             onClicked: titlebar.workspaceRequested("projects")
-        }
-
-        Text {
-            width: Math.max(110, titleIdentity.width - 236)
-            text: titlebar.titleText
-            color: "#40577a"
-            font.pixelSize: 14
-            font.weight: Font.Bold
-            font.family: "Microsoft YaHei UI"
-            elide: Text.ElideRight
-            renderType: Text.NativeRendering
-            anchors.verticalCenter: parent.verticalCenter
         }
     }
 
@@ -91,14 +73,16 @@ Rectangle {
         z: 2
 
         ToolPill {
+            objectName: "aiSummaryButton"
             text: "智能摘要"
             widthHint: 76
-            primary: true
+            primary: titlebar.activePanel === "ai"
             active: titlebar.activePanel === "ai"
             onClicked: titlebar.aiClicked()
         }
 
         ToolPill {
+            objectName: "settingsButton"
             text: "设置"
             widthHint: 50
             active: titlebar.activePanel === "settings"

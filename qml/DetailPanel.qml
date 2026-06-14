@@ -28,7 +28,7 @@ ColumnLayout {
     }
 
     Text {
-        text: root.readOnly ? "收纳详情" : "事件详情"
+        text: root.readOnly ? "收纳详情" : "便签详情"
         color: "#071426"
         font.pixelSize: 23
         font.weight: Font.Bold

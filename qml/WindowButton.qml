@@ -1,8 +1,11 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 
 Button {
     id: control
+
+    readonly property ChronoTokens tokens: ChronoTokens {}
+
     property string label: ""
     property bool danger: false
 
@@ -14,15 +17,15 @@ Button {
         text: control.label
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        color: control.danger ? "#a8322f" : "#53647f"
+        color: control.danger ? tokens.danger : tokens.muted
         font.pixelSize: 14
-        font.family: "Microsoft YaHei UI"
+        font.family: tokens.fontUi
         renderType: Text.NativeRendering
     }
 
     background: Rectangle {
-        radius: 10
-        color: control.hovered ? (control.danger ? "#ffe7e7" : "#fff5c6") : "transparent"
+        radius: tokens.radiusSm
+        color: control.hovered ? (control.danger ? tokens.dangerSoft : tokens.paperSoft) : "transparent"
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 }
