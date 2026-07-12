@@ -10,6 +10,8 @@ typedef struct AppConfig {
     wchar_t api_url[CONFIG_VALUE_MAX];
     wchar_t api_key[CONFIG_VALUE_MAX];
     wchar_t model[128];
+    wchar_t ui_font_family[128];
+    int ui_font_size;
 } AppConfig;
 
 void config_defaults(AppConfig *config);

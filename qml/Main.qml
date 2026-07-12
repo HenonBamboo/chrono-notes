@@ -8,7 +8,11 @@ import QtQuick.Window
 ApplicationWindow {
     id: root
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens appTokens: ChronoTokens {
+        fontUi: root.app.uiFontFamily
+        baseFontSize: root.app.uiFontSize
+    }
+    readonly property var tokens: root.appTokens
 
     width: 900
     height: 620
@@ -18,6 +22,8 @@ ApplicationWindow {
     title: "ChronoNotes"
     color: root.paperColor
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
+    font.family: root.appTokens.fontUi
+    font.pixelSize: root.appTokens.sizeBody
     background: Item {}
 
     property string panel: ""
@@ -36,7 +42,7 @@ ApplicationWindow {
     required property var app
     required property var projectModel
 
-    Behavior on drawerWidth { NumberAnimation { duration: tokens.drawerDuration; easing.type: Easing.OutCubic } }
+    Behavior on drawerWidth { NumberAnimation { duration: root.tokens.drawerDuration; easing.type: Easing.OutCubic } }
 
     function togglePanel(name) {
         root.panel = root.panel === name ? "" : name
@@ -163,7 +169,7 @@ ApplicationWindow {
             anchors.top: parent.top
             height: 52
             z: -1
-            color: root.workspace === "projects" ? tokens.mintSoft : tokens.paperSoft
+            color: root.workspace === "projects" ? root.tokens.mintSoft : root.tokens.paperSoft
             opacity: 0.62
         }
 
@@ -175,6 +181,9 @@ ApplicationWindow {
             titleText: ""
             activePanel: root.panel
             workspace: root.workspace
+            theme: root.appTokens
+            uiFontFamily: root.app.uiFontFamily
+            uiFontSize: root.app.uiFontSize
             windowVisibility: root.visibility
             onMoveRequested: root.startSystemMove()
             onWorkspaceRequested: function(name) {
@@ -211,6 +220,9 @@ ApplicationWindow {
                     anchors.top: parent.top
                     stage: root.app.stage
                     allCompleted: root.app.allCompleted
+                    theme: root.appTokens
+                    uiFontFamily: root.app.uiFontFamily
+                    uiFontSize: root.app.uiFontSize
                     onStageRequested: function(stage) {
                         root.app.stage = stage
                         root.app.searchQuery = ""
@@ -234,6 +246,9 @@ ApplicationWindow {
                     completionFilter: root.app.searchCompletionFilter
                     inkColor: root.inkColor
                     mutedColor: root.mutedColor
+                    theme: root.appTokens
+                    uiFontFamily: root.app.uiFontFamily
+                    uiFontSize: root.app.uiFontSize
                     onQueryEdited: function(text) {
                         root.app.searchQuery = text
                         root.searchOpen = text.length > 0 || root.searchOpen
@@ -258,6 +273,9 @@ ApplicationWindow {
                     anchors.topMargin: searchBar.open ? 8 : 10
                     stage: root.app.stage
                     inkColor: root.inkColor
+                    theme: root.appTokens
+                    uiFontFamily: root.app.uiFontFamily
+                    uiFontSize: root.app.uiFontSize
                     onEmptySubmitted: root.showToast("请输入便签内容")
                     onAddRequested: function(text) {
                         root.app.addEvent(text)
@@ -283,6 +301,9 @@ ApplicationWindow {
                     cardColor: root.cardColor
                     inkColor: root.inkColor
                     mutedColor: root.mutedColor
+                    theme: root.appTokens
+                    uiFontFamily: root.app.uiFontFamily
+                    uiFontSize: root.app.uiFontSize
                     onToggleRequested: function(eventId) {
                         root.app.toggleEvent(eventId)
                     }
@@ -310,6 +331,9 @@ ApplicationWindow {
                     inkColor: root.inkColor
                     mutedColor: root.mutedColor
                     accentColor: tokens.accentMint
+                    theme: root.appTokens
+                    uiFontFamily: root.app.uiFontFamily
+                    uiFontSize: root.app.uiFontSize
                     onNoticeRequested: function(message) {
                         root.showToast(message)
                     }
@@ -328,7 +352,7 @@ ApplicationWindow {
             opacity: root.panel === "" ? 0 : 1
             z: 24
 
-            Behavior on opacity { NumberAnimation { duration: tokens.drawerDuration; easing.type: Easing.OutCubic } }
+            Behavior on opacity { NumberAnimation { duration: root.tokens.drawerDuration; easing.type: Easing.OutCubic } }
 
             MouseArea {
                 anchors.fill: parent
@@ -355,6 +379,7 @@ ApplicationWindow {
             summaryContextText: root.workspace === "projects" ? projectTree.aiContextText : ""
             summaryEmpty: root.workspace === "projects" && !projectTree.aiSummaryAvailable
             workspaceSurfaceColor: root.paperColor
+            theme: root.appTokens
             onCloseRequested: {
                 root.closeCurrentPanel()
             }
@@ -379,10 +404,15 @@ ApplicationWindow {
             apiUrl: root.app.apiUrl
             apiKey: root.app.apiKey
             modelName: root.app.modelName
-            onSaveSettingsRequested: function(url, key, model) {
+            uiFontFamily: root.app.uiFontFamily
+            uiFontSize: root.app.uiFontSize
+            uiFontFamilies: root.app.uiFontFamilies
+            onSaveSettingsRequested: function(url, key, model, fontFamily, fontSize) {
                 root.app.apiUrl = url
                 root.app.apiKey = key
                 root.app.modelName = model
+                root.app.uiFontFamily = fontFamily
+                root.app.uiFontSize = fontSize
                 root.app.saveConfig()
                 root.panel = ""
             }
@@ -437,8 +467,8 @@ ApplicationWindow {
             text: root.pendingImportText
             color: root.inkColor
             wrapMode: Text.WordWrap
-            font.pixelSize: 13
-            font.family: "Microsoft YaHei UI"
+            font.pixelSize: root.tokens.sizeBody + 1
+            font.family: root.tokens.fontUi
             renderType: Text.NativeRendering
         }
     }
@@ -533,13 +563,13 @@ ApplicationWindow {
             id: toastText
             anchors.centerIn: parent
             color: "white"
-            font.pixelSize: 13
-            font.family: "Microsoft YaHei UI"
+            font.pixelSize: root.tokens.sizeBody + 1
+            font.family: root.tokens.fontUi
             renderType: Text.NativeRendering
         }
 
-        Behavior on opacity { NumberAnimation { duration: 160 } }
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
 
         Timer {
             id: toastTimer

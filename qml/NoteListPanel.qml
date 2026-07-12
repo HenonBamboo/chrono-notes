@@ -6,7 +6,11 @@ import QtQuick.Controls
 Item {
     id: panel
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens fallbackTokens: ChronoTokens {
+        fontUi: panel.uiFontFamily
+        baseFontSize: panel.uiFontSize
+    }
+    readonly property var tokens: panel.theme ? panel.theme : panel.fallbackTokens
 
     property var model
     property int totalCount: 0
@@ -14,11 +18,14 @@ Item {
     property bool hasVisibleRows: false
     property string stageLabel: ""
     property bool overlayOpen: false
-    property color blueColor: tokens.accentBlue
-    property color accentColor: tokens.accentYellow
-    property color cardColor: tokens.card
-    property color inkColor: tokens.ink
-    property color mutedColor: tokens.muted
+    property color blueColor: panel.tokens.accentBlue
+    property color accentColor: panel.tokens.accentYellow
+    property color cardColor: panel.tokens.card
+    property color inkColor: panel.tokens.ink
+    property color mutedColor: panel.tokens.muted
+    property var theme: null
+    property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
+    property int uiFontSize: theme ? theme.baseFontSize : 12
     property var collapsedSections: ({})
     property int archiveAutoCollapseThreshold: 6
 
@@ -67,10 +74,10 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: tokens.radiusLg
+        radius: panel.tokens.radiusLg
         color: "#22fffef7"
         border.width: 1
-        border.color: tokens.lineSoft
+        border.color: panel.tokens.lineSoft
         antialiasing: true
     }
 
@@ -79,12 +86,15 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.leftMargin: tokens.space1
-        anchors.rightMargin: tokens.space1
+        anchors.leftMargin: panel.tokens.space1
+        anchors.rightMargin: panel.tokens.space1
         totalCount: panel.totalCount
         completedCount: panel.completedCount
         blueColor: panel.blueColor
         accentColor: panel.accentColor
+        theme: panel.tokens
+        uiFontFamily: panel.uiFontFamily
+        uiFontSize: panel.uiFontSize
     }
 
     ListView {
@@ -120,9 +130,9 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: panel.sectionTitle(parent.section)
                 color: panel.mutedColor
-                font.pixelSize: tokens.sizeBody
+                font.pixelSize: panel.tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: tokens.fontUi
+                font.family: panel.tokens.fontUi
                 elide: Text.ElideRight
                 renderType: Text.NativeRendering
             }
@@ -141,34 +151,34 @@ Item {
             width: listView.needsScroll ? 8 : 0
             opacity: (listView.moving || listView.flicking || hovered || pressed) ? 0.7 : 0
             hoverEnabled: true
-            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Behavior on opacity { NumberAnimation { duration: panel.tokens.motionMedium; easing.type: Easing.OutCubic } }
             contentItem: Rectangle {
                 radius: 4
-                color: tokens.mutedSoft
+                color: panel.tokens.mutedSoft
             }
             background: Rectangle { color: "transparent" }
         }
 
         populate: Transition {
-            NumberAnimation { properties: "y"; duration: 250; easing.type: Easing.OutCubic }
-            NumberAnimation { properties: "opacity"; from: 0; to: 1; duration: 180 }
+            NumberAnimation { properties: "y"; duration: panel.tokens.motionSlow; easing.type: Easing.OutCubic }
+            NumberAnimation { properties: "opacity"; from: 0; to: 1; duration: panel.tokens.motionMedium }
         }
         displaced: Transition {
-            NumberAnimation { properties: "y"; duration: 340; easing.type: Easing.OutCubic }
+            NumberAnimation { properties: "y"; duration: panel.tokens.motionSlow; easing.type: Easing.OutCubic }
         }
         move: Transition {
-            NumberAnimation { properties: "y"; duration: 360; easing.type: Easing.OutCubic }
+            NumberAnimation { properties: "y"; duration: panel.tokens.motionSlow; easing.type: Easing.OutCubic }
         }
         moveDisplaced: Transition {
-            NumberAnimation { properties: "y"; duration: 360; easing.type: Easing.OutCubic }
+            NumberAnimation { properties: "y"; duration: panel.tokens.motionSlow; easing.type: Easing.OutCubic }
         }
         add: Transition {
-            NumberAnimation { property: "y"; from: -18; duration: 320; easing.type: Easing.OutCubic }
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220 }
+            NumberAnimation { property: "y"; from: -18; duration: panel.tokens.motionSlow; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: panel.tokens.motionSlow }
         }
         remove: Transition {
-            NumberAnimation { property: "x"; to: 28; duration: 190; easing.type: Easing.InCubic }
-            NumberAnimation { property: "opacity"; to: 0; duration: 170 }
+            NumberAnimation { property: "x"; to: 28; duration: panel.tokens.motionMedium; easing.type: Easing.InCubic }
+            NumberAnimation { property: "opacity"; to: 0; duration: panel.tokens.motionMedium }
         }
 
         delegate: NoteRow {
@@ -178,6 +188,9 @@ Item {
             cardColor: panel.cardColor
             inkColor: panel.inkColor
             mutedColor: panel.mutedColor
+            theme: panel.tokens
+            uiFontFamily: panel.uiFontFamily
+            uiFontSize: panel.uiFontSize
             collapsedBySection: panel.rowHiddenByCollapse(section, archive)
             onToggleRequested: panel.toggleRequested(eventId)
             onDeleteRequested: panel.deleteRequested(eventId)
@@ -192,12 +205,12 @@ Item {
             width: Math.min(parent.width - 60, 430)
             visible: panel.emptyStateVisible()
             text: panel.stageLabel + "还没有便签。\n写下一件真正要做的事就够了。"
-            color: tokens.mutedSoft
+            color: panel.tokens.mutedSoft
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
-            font.pixelSize: 14
+            font.pixelSize: panel.tokens.sizeBody + 2
             lineHeight: 1.4
-            font.family: tokens.fontUi
+            font.family: panel.tokens.fontUi
             renderType: Text.NativeRendering
         }
     }

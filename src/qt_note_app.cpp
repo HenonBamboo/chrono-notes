@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -34,11 +35,6 @@ NoteApp::NoteApp(QObject *parent) : QAbstractListModel(parent) {
     }
     config_defaults(&config_);
     if (!config_load(&config_, config_path_)) {
-        config_save(&config_, config_path_);
-    } else if (config_.api_key[0] == L'\0' &&
-               wcscmp(config_.api_url, L"https://api.openai.com/v1/chat/completions") == 0 &&
-               wcscmp(config_.model, L"gpt-4o-mini") == 0) {
-        config_defaults(&config_);
         config_save(&config_, config_path_);
     }
     updateDateKey();
@@ -241,6 +237,50 @@ void NoteApp::setModelName(const QString &value) {
     wcsncpy(config_.model, wide.c_str(), 127);
     config_.model[127] = L'\0';
     emit configChanged();
+}
+
+QString NoteApp::uiFontFamily() const {
+    return fromWide(config_.ui_font_family);
+}
+
+void NoteApp::setUiFontFamily(const QString &value) {
+    const QString trimmed = value.trimmed().isEmpty() ? QStringLiteral("Microsoft YaHei UI") : value.trimmed();
+    if (uiFontFamily() == trimmed) {
+        return;
+    }
+    const std::wstring wide = toWide(trimmed);
+    wcsncpy(config_.ui_font_family, wide.c_str(), 127);
+    config_.ui_font_family[127] = L'\0';
+    emit configChanged();
+}
+
+int NoteApp::uiFontSize() const {
+    return config_.ui_font_size;
+}
+
+void NoteApp::setUiFontSize(int value) {
+    const int normalized = value >= 10 && value <= 18 ? value : 12;
+    if (config_.ui_font_size == normalized) {
+        return;
+    }
+    config_.ui_font_size = normalized;
+    emit configChanged();
+}
+
+QStringList NoteApp::uiFontFamilies() const {
+    QStringList families = QFontDatabase::families();
+    const QString current = uiFontFamily().trimmed().isEmpty()
+        ? QStringLiteral("Microsoft YaHei UI")
+        : uiFontFamily().trimmed();
+
+    if (families.isEmpty()) {
+        families << current;
+    } else if (!families.contains(current, Qt::CaseInsensitive)) {
+        families.prepend(current);
+    }
+
+    families.removeDuplicates();
+    return families;
 }
 
 void NoteApp::addEvent(const QString &text) {

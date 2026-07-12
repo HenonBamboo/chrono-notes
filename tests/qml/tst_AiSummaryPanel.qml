@@ -22,7 +22,7 @@ TestCase {
         panel.summaryScope = "stickies"
         panel.summaryContextText = ""
         panel.summaryEmpty = false
-        panel.surfaceColor = "#fff5af"
+        panel.surfaceColor = panel.tokens.drawerPaper
         panel.aiBusy = false
         panel.aiResultText = ""
         runSpy.clear()
@@ -35,21 +35,22 @@ TestCase {
         verify(findChild(panel, "aiRunButton").enabled)
     }
 
-    function test_projectScopeUsesProjectCopyContextAndMintSurface() {
+    function test_projectScopeUsesProjectCopyContextAndDrawerSurface() {
         panel.summaryScope = "projects"
-        panel.summaryContextText = "项目摘要上下文\n标题：产品改版\n具体内容：右侧说明"
-        panel.surfaceColor = "#e9f7d7"
+        panel.summaryContextText = "项目摘要上下文\n标题：产品重构\n具体内容：右侧说明"
         wait(0)
 
         compare(findChild(panel, "aiPanelTitle").text, "项目摘要")
         verify(findChild(panel, "aiPanelDescription").text.indexOf("当前项目树") >= 0)
-        verify(findChild(panel, "aiRequirementInput").text.indexOf("项目") >= 0)
+        verify(findChild(panel, "aiRequirementInput").text.indexOf("项目树") >= 0)
         const surface = findChild(panel, "aiPanelSurface") || panel
-        compare(surface.color, "#e9f7d7")
+        compare(surface.color, panel.tokens.drawerPaper)
+        verify(surface.color !== panel.tokens.paper)
+        verify(surface.color !== panel.tokens.paperProject)
 
         panel.runSummary()
         compare(runSpy.count, 1)
-        compare(runSpy.signalArguments[0][1], "项目摘要上下文\n标题：产品改版\n具体内容：右侧说明")
+        compare(runSpy.signalArguments[0][1], "项目摘要上下文\n标题：产品重构\n具体内容：右侧说明")
     }
 
     function test_emptyProjectSummaryIsDisabled() {

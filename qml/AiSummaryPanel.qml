@@ -8,14 +8,21 @@ Rectangle {
     id: surface
     objectName: "aiPanelSurface"
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens fallbackTokens: ChronoTokens {
+        fontUi: surface.uiFontFamily
+        baseFontSize: surface.uiFontSize
+    }
+    readonly property var tokens: surface.theme ? surface.theme : surface.fallbackTokens
 
     property bool aiBusy: false
     property string aiResultText: ""
     property string summaryScope: "stickies"
     property string summaryContextText: ""
     property bool summaryEmpty: false
-    property color surfaceColor: tokens.paper
+    property color surfaceColor: tokens.drawerPaper
+    property var theme: null
+    property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
+    property int uiFontSize: theme ? theme.baseFontSize : 12
     readonly property bool projectScope: summaryScope === "projects"
     property alias inputActiveFocus: requirement.activeFocus
 
@@ -51,7 +58,7 @@ Rectangle {
             objectName: "aiPanelTitle"
             text: surface.projectScope ? "项目摘要" : "便签摘要"
             color: surface.tokens.ink
-            font.pixelSize: 23
+            font.pixelSize: surface.tokens.sizeTitle + 7
             font.weight: Font.Bold
             font.family: surface.tokens.fontUi
             renderType: Text.NativeRendering
@@ -64,7 +71,7 @@ Rectangle {
                   ? "根据当前项目树的选中节点、路径、进度、具体内容和任务数量生成摘要。"
                   : "根据当前便签视图、阶段、搜索结果和自动收纳内容生成摘要。"
             color: surface.tokens.muted
-            font.pixelSize: 13
+            font.pixelSize: surface.tokens.sizeBody + 1
             font.family: surface.tokens.fontUi
             wrapMode: Text.WordWrap
             renderType: Text.NativeRendering
@@ -74,8 +81,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 132
             radius: surface.tokens.radiusLg
-            color: "#99ffffff"
-            border.color: "transparent"
+            color: surface.tokens.drawerCard
+            border.color: surface.tokens.lineSoft
 
             ColumnLayout {
                 anchors.fill: parent
@@ -85,7 +92,7 @@ Rectangle {
                 Text {
                     text: "摘要要求"
                     color: surface.tokens.ink
-                    font.pixelSize: 13
+                    font.pixelSize: surface.tokens.sizeBody + 1
                     font.weight: Font.DemiBold
                     font.family: surface.tokens.fontUi
                     renderType: Text.NativeRendering
@@ -98,7 +105,7 @@ Rectangle {
                     Layout.fillHeight: true
                     text: surface.defaultPrompt()
                     wrapMode: TextEdit.WrapAnywhere
-                    font.pixelSize: 13
+                    font.pixelSize: surface.tokens.sizeBody + 1
                     font.family: surface.tokens.fontUi
                     color: surface.tokens.ink
                     renderType: Text.NativeRendering
@@ -107,6 +114,7 @@ Rectangle {
                         color: "#b8ffffff"
                         border.color: requirement.activeFocus ? surface.tokens.accentBlue : "transparent"
                         border.width: 1
+                        Behavior on border.color { ColorAnimation { duration: surface.tokens.motionFast; easing.type: Easing.OutCubic } }
                     }
                 }
             }
@@ -130,6 +138,9 @@ Rectangle {
                     required property var modelData
                     text: modelData.label
                     widthHint: 58
+                    theme: surface.tokens
+                    uiFontFamily: surface.uiFontFamily
+                    uiFontSize: surface.uiFontSize
                     onClicked: requirement.text = modelData.prompt
                 }
             }
@@ -139,8 +150,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 84
             radius: surface.tokens.radiusLg
-            color: "#99ffffff"
-            border.color: "transparent"
+            color: surface.tokens.drawerCard
+            border.color: surface.tokens.lineSoft
 
             Column {
                 anchors.fill: parent
@@ -150,7 +161,7 @@ Rectangle {
                 Text {
                     text: surface.projectScope ? "项目上下文" : "便签上下文"
                     color: surface.tokens.ink
-                    font.pixelSize: 14
+                    font.pixelSize: surface.tokens.sizeBody + 2
                     font.weight: Font.DemiBold
                     font.family: surface.tokens.fontUi
                     renderType: Text.NativeRendering
@@ -163,7 +174,7 @@ Rectangle {
                           ? (surface.summaryEmpty ? "先创建项目，再生成项目摘要。" : "会使用当前选中节点；未选中时总结整个项目树概况。")
                           : "会结合当前阶段、搜索结果和自动收纳内容生成。"
                     color: surface.tokens.muted
-                    font.pixelSize: 13
+                    font.pixelSize: surface.tokens.sizeBody + 1
                     wrapMode: Text.WordWrap
                     font.family: surface.tokens.fontUi
                     renderType: Text.NativeRendering
@@ -185,7 +196,7 @@ Rectangle {
                 color: "#ffffff"
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                font.pixelSize: 14
+                font.pixelSize: surface.tokens.sizeBody + 2
                 font.weight: Font.Bold
                 font.family: surface.tokens.fontUi
                 renderType: Text.NativeRendering
@@ -194,14 +205,14 @@ Rectangle {
                 radius: surface.tokens.radiusMd
                 color: !runAi.enabled ? surface.tokens.mutedSoft
                      : runAi.hovered ? "#245db6" : surface.tokens.accentBlue
-                Behavior on color { ColorAnimation { duration: 130 } }
+                Behavior on color { ColorAnimation { duration: surface.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
         }
 
         Text {
             text: "结果"
             color: surface.tokens.muted
-            font.pixelSize: 12
+            font.pixelSize: surface.tokens.sizeBody
             font.family: surface.tokens.fontUi
             renderType: Text.NativeRendering
         }
@@ -213,13 +224,13 @@ Rectangle {
             text: surface.aiResultText
             wrapMode: TextEdit.WrapAnywhere
             placeholderText: "生成后的摘要会出现在这里。"
-            font.pixelSize: 13
+            font.pixelSize: surface.tokens.sizeBody + 1
             font.family: surface.tokens.fontUi
             color: surface.tokens.ink
             renderType: Text.NativeRendering
             background: Rectangle {
                 radius: surface.tokens.radiusLg
-                color: "#99ffffff"
+                color: surface.tokens.drawerCard
                 border.color: "transparent"
                 border.width: 0
             }

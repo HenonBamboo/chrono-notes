@@ -20,7 +20,7 @@ TestCase {
         verify(findChild(titlebar, "titleTextLabel") === null)
     }
 
-    function test_globalActionsRemainAvailable() {
+    function test_globalActionsShareTheSameActiveModel() {
         const aiButton = findChild(titlebar, "aiSummaryButton")
         const settingsButton = findChild(titlebar, "settingsButton")
         compare(aiButton.text, "智能摘要")
@@ -28,9 +28,18 @@ TestCase {
         compare(aiButton.active, false)
         compare(aiButton.primary, false)
         compare(settingsButton.active, false)
+        compare(settingsButton.primary, false)
 
         titlebar.activePanel = "ai"
         compare(aiButton.active, true)
-        compare(aiButton.primary, true)
+        compare(aiButton.primary, false)
+        compare(settingsButton.active, false)
+        compare(settingsButton.primary, false)
+
+        titlebar.activePanel = "settings"
+        compare(aiButton.active, false)
+        compare(aiButton.primary, false)
+        compare(settingsButton.active, true)
+        compare(settingsButton.primary, false)
     }
 }

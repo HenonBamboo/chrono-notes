@@ -4,7 +4,11 @@ import QtQuick.Controls
 Rectangle {
     id: row
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens fallbackTokens: ChronoTokens {
+        fontUi: row.uiFontFamily
+        baseFontSize: row.uiFontSize
+    }
+    readonly property var tokens: row.theme ? row.theme : row.fallbackTokens
 
     required property int eventId
     required property string text
@@ -17,10 +21,13 @@ Rectangle {
     required property string highlightedText
     required property string repeat
 
-    property color cardColor: tokens.card
-    property color inkColor: tokens.ink
-    property color mutedColor: tokens.muted
-    property color blueColor: tokens.accentBlue
+    property color cardColor: row.tokens.card
+    property color inkColor: row.tokens.ink
+    property color mutedColor: row.tokens.muted
+    property color blueColor: row.tokens.accentBlue
+    property var theme: null
+    property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
+    property int uiFontSize: theme ? theme.baseFontSize : 12
     property bool compact: false
     property bool editing: false
     property bool expanded: false
@@ -56,20 +63,21 @@ Rectangle {
     antialiasing: true
     clip: true
 
-    Behavior on height { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-    Behavior on opacity { NumberAnimation { duration: 160 } }
-    Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on height { NumberAnimation { duration: row.tokens.motionSlow; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: row.tokens.motionMedium; easing.type: Easing.OutCubic } }
+    Behavior on y { NumberAnimation { duration: row.tokens.motionSlow; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
 
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: row.archive ? tokens.radiusMd : tokens.radiusMd
+        radius: row.archive ? row.tokens.radiusMd : row.tokens.radiusMd
         color: row.archive ? "#99fffbea" : row.completed ? "#99fffbea" : row.cardColor
         border.width: 1
-        border.color: row.hovering ? "#55f4bf30" : tokens.lineSoft
+        border.color: row.hovering ? "#55f4bf30" : row.tokens.lineSoft
         antialiasing: true
         clip: true
+        Behavior on border.color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
     }
 
     Rectangle {
@@ -78,9 +86,9 @@ Rectangle {
         anchors.left: card.left
         anchors.top: card.top
         anchors.bottom: card.bottom
-        color: row.archive ? tokens.mutedSoft : row.completed ? row.blueColor : tokens.accentYellow
+        color: row.archive ? row.tokens.mutedSoft : row.completed ? row.blueColor : row.tokens.accentYellow
         opacity: row.hovering || row.completed ? 0.95 : 0
-        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
     }
 
     function startEdit() {
@@ -128,9 +136,9 @@ Rectangle {
             width: parent.width
             text: row.highlightedText.length > 0 ? row.highlightedText : row.text
             textFormat: Text.StyledText
-            color: row.completed ? tokens.muted : row.inkColor
-            font.pixelSize: row.compact ? 13 : 15
-            font.family: tokens.fontUi
+            color: row.completed ? row.tokens.muted : row.inkColor
+            font.pixelSize: row.compact ? row.tokens.sizeBody + 1 : row.tokens.sizeTitle + 1
+            font.family: row.tokens.fontUi
             font.weight: Font.Bold
             maximumLineCount: row.expanded ? 8 : (row.compact ? 1 : 3)
             elide: row.expanded ? Text.ElideNone : Text.ElideRight
@@ -144,8 +152,8 @@ Rectangle {
             visible: !row.completed
             text: row.repeatLabel.length > 0 ? row.meta + " · 重复：" + row.repeatLabel : row.meta
             color: row.mutedColor
-            font.pixelSize: 11
-            font.family: tokens.fontUi
+            font.pixelSize: row.tokens.sizeMeta
+            font.family: row.tokens.fontUi
             elide: Text.ElideRight
             renderType: Text.NativeRendering
         }
@@ -159,16 +167,16 @@ Rectangle {
                 width: 18
                 height: 18
                 radius: 7
-                color: tokens.accentBlueSoft
+                color: row.tokens.accentBlueSoft
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
                     text: "✓"
                     color: row.blueColor
-                    font.pixelSize: 13
+                    font.pixelSize: row.tokens.sizeBody + 1
                     font.weight: Font.Bold
-                    font.family: tokens.fontUi
+                    font.family: row.tokens.fontUi
                     renderType: Text.NativeRendering
                 }
             }
@@ -177,9 +185,9 @@ Rectangle {
                 width: Math.max(30, parent.width - 26)
                 text: row.meta
                 color: row.blueColor
-                font.pixelSize: row.compact ? 11 : 12
+                font.pixelSize: row.compact ? row.tokens.sizeMeta : row.tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: tokens.fontUi
+                font.family: row.tokens.fontUi
                 elide: Text.ElideRight
                 renderType: Text.NativeRendering
                 anchors.verticalCenter: parent.verticalCenter
@@ -205,16 +213,16 @@ Rectangle {
                 width: 22
                 height: 22
                 radius: 8
-                color: tokens.lineSoft
+                color: row.tokens.lineSoft
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
                     text: "收"
-                    color: tokens.muted
-                    font.pixelSize: 11
+                    color: row.tokens.muted
+                    font.pixelSize: row.tokens.sizeMeta
                     font.weight: Font.Bold
-                    font.family: tokens.fontUi
+                    font.family: row.tokens.fontUi
                     renderType: Text.NativeRendering
                 }
             }
@@ -222,9 +230,9 @@ Rectangle {
             Text {
                 width: parent.width - 31
                 text: row.text
-                color: tokens.muted
-                font.pixelSize: row.compact ? 13 : 15
-                font.family: tokens.fontUi
+                color: row.tokens.muted
+                font.pixelSize: row.compact ? row.tokens.sizeBody + 1 : row.tokens.sizeTitle + 1
+                font.family: row.tokens.fontUi
                 font.weight: Font.DemiBold
                 maximumLineCount: row.expanded ? 6 : 2
                 elide: row.expanded ? Text.ElideNone : Text.ElideRight
@@ -238,9 +246,9 @@ Rectangle {
         Text {
             width: parent.width
             text: row.meta
-            color: tokens.mutedSoft
-            font.pixelSize: 11
-            font.family: tokens.fontUi
+            color: row.tokens.mutedSoft
+            font.pixelSize: row.tokens.sizeMeta
+            font.family: row.tokens.fontUi
             maximumLineCount: row.expanded ? 2 : 1
             elide: Text.ElideRight
             renderType: Text.NativeRendering
@@ -259,15 +267,15 @@ Rectangle {
         anchors.bottom: card.bottom
         anchors.bottomMargin: 9
         wrapMode: TextEdit.WrapAnywhere
-        font.pixelSize: 15
-        font.family: tokens.fontUi
+        font.pixelSize: row.tokens.sizeTitle + 1
+        font.family: row.tokens.fontUi
         color: row.inkColor
         selectedTextColor: row.inkColor
-        selectionColor: tokens.accentYellowSoft
+        selectionColor: row.tokens.accentYellowSoft
         renderType: Text.NativeRendering
         background: Rectangle {
-            radius: tokens.radiusMd
-            color: tokens.cardQuiet
+            radius: row.tokens.radiusMd
+            color: row.tokens.cardQuiet
             border.color: "#66f4bf30"
             border.width: 1
         }
@@ -294,7 +302,7 @@ Rectangle {
         visible: !row.editing
         opacity: row.hovering ? 1 : 0.74
         z: 4
-        Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: row.tokens.motionMedium; easing.type: Easing.OutCubic } }
 
         Button {
             id: completeButton
@@ -307,21 +315,21 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: completeButton.text
-                color: completeButton.hovered ? row.blueColor : tokens.muted
+                color: completeButton.hovered ? row.blueColor : row.tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                font.pixelSize: 12
+                font.pixelSize: row.tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: tokens.fontUi
+                font.family: row.tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: completeButton.hovered ? tokens.accentBlueSoft : "#00ffffff"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color: completeButton.hovered ? row.tokens.accentBlueSoft : "#00ffffff"
+                Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
             scale: completeButton.pressed ? 0.94 : completeButton.hovered ? 1.05 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
 
         Button {
@@ -335,21 +343,21 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: deleteButton.text
-                color: deleteButton.hovered ? tokens.danger : tokens.muted
+                color: deleteButton.hovered ? row.tokens.danger : row.tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                font.pixelSize: 12
+                font.pixelSize: row.tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: tokens.fontUi
+                font.family: row.tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: deleteButton.hovered ? tokens.dangerSoft : "#00ffffff"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color: deleteButton.hovered ? row.tokens.dangerSoft : "#00ffffff"
+                Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
             scale: deleteButton.pressed ? 0.94 : deleteButton.hovered ? 1.05 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
 
         Button {
@@ -363,21 +371,21 @@ Rectangle {
             implicitHeight: 28
             contentItem: Text {
                 text: viewButton.text
-                color: viewButton.hovered ? row.blueColor : tokens.muted
+                color: viewButton.hovered ? row.blueColor : row.tokens.muted
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                font.pixelSize: 12
+                font.pixelSize: row.tokens.sizeBody
                 font.weight: Font.DemiBold
-                font.family: tokens.fontUi
+                font.family: row.tokens.fontUi
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
                 radius: 12
-                color: viewButton.hovered ? tokens.accentBlueSoft : "#00ffffff"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color: viewButton.hovered ? row.tokens.accentBlueSoft : "#00ffffff"
+                Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
             scale: viewButton.pressed ? 0.94 : viewButton.hovered ? 1.05 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
     }
 }

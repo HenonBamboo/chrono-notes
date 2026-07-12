@@ -25,6 +25,10 @@ static void trim_newline(wchar_t *text) {
     }
 }
 
+static int normalized_font_size(int value) {
+    return value >= 10 && value <= 18 ? value : 12;
+}
+
 void config_defaults(AppConfig *config) {
     if (config == NULL) {
         return;
@@ -32,6 +36,8 @@ void config_defaults(AppConfig *config) {
     copy_wstr(config->api_url, CONFIG_VALUE_MAX, L"https://api.openai.com/v1/chat/completions");
     copy_wstr(config->api_key, CONFIG_VALUE_MAX, L"");
     copy_wstr(config->model, 128, L"gpt-4o-mini");
+    copy_wstr(config->ui_font_family, 128, L"Microsoft YaHei UI");
+    config->ui_font_size = 12;
 }
 
 int config_load(AppConfig *config, const wchar_t *path) {
@@ -63,7 +69,16 @@ int config_load(AppConfig *config, const wchar_t *path) {
             copy_wstr(config->api_key, CONFIG_VALUE_MAX, value);
         } else if (wcscmp(key, L"model") == 0) {
             copy_wstr(config->model, 128, value);
+        } else if (wcscmp(key, L"ui_font_family") == 0) {
+            copy_wstr(config->ui_font_family, 128, value);
+        } else if (wcscmp(key, L"ui_font_size") == 0) {
+            config->ui_font_size = normalized_font_size(static_cast<int>(wcstol(value, NULL, 10)));
         }
+    }
+
+    config->ui_font_size = normalized_font_size(config->ui_font_size);
+    if (config->ui_font_family[0] == L'\0') {
+        copy_wstr(config->ui_font_family, 128, L"Microsoft YaHei UI");
     }
 
     fclose(file);
@@ -83,6 +98,8 @@ int config_save(const AppConfig *config, const wchar_t *path) {
     fwprintf(file, L"api_url=%ls\n", config->api_url);
     fwprintf(file, L"api_key=%ls\n", config->api_key);
     fwprintf(file, L"model=%ls\n", config->model);
+    fwprintf(file, L"ui_font_family=%ls\n", config->ui_font_family);
+    fwprintf(file, L"ui_font_size=%d\n", normalized_font_size(config->ui_font_size));
     fclose(file);
     return 1;
 }

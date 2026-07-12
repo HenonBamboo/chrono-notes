@@ -38,6 +38,8 @@ private slots:
     void exportsMarkdownUsingChosenFile();
     void hasVisibleRowsTracksArchiveAndSearchViews();
     void previewsImportJsonEventCountBeforeImport();
+    void uiFontSettingsPersistThroughNoteApp();
+    void exposesSystemFontFamiliesForSettings();
 };
 
 static QTemporaryDir makeIsolatedDataDir() {
@@ -490,6 +492,38 @@ void QtNoteAppTests::previewsImportJsonEventCountBeforeImport() {
 
     QCOMPARE(app.rowCount(), 1);
     QCOMPARE(app.data(app.index(0, 0), NoteApp::TextRole).toString(), QStringLiteral("preview json item"));
+}
+
+void QtNoteAppTests::uiFontSettingsPersistThroughNoteApp() {
+    QTemporaryDir dir = makeIsolatedDataDir();
+    useDataDir(dir);
+
+    {
+        NoteApp app;
+        QCOMPARE(app.uiFontFamily(), QStringLiteral("Microsoft YaHei UI"));
+        QCOMPARE(app.uiFontSize(), 12);
+        app.setUiFontFamily(QStringLiteral("Segoe UI"));
+        app.setUiFontSize(15);
+        app.saveConfig();
+    }
+
+    NoteApp reloaded;
+    QCOMPARE(reloaded.uiFontFamily(), QStringLiteral("Segoe UI"));
+    QCOMPARE(reloaded.uiFontSize(), 15);
+
+    reloaded.setUiFontSize(99);
+    QCOMPARE(reloaded.uiFontSize(), 12);
+}
+
+void QtNoteAppTests::exposesSystemFontFamiliesForSettings() {
+    QTemporaryDir dir = makeIsolatedDataDir();
+    useDataDir(dir);
+
+    NoteApp app;
+    const QStringList families = app.uiFontFamilies();
+
+    QVERIFY(!families.isEmpty());
+    QVERIFY2(families.contains(app.uiFontFamily()), qPrintable(app.uiFontFamily()));
 }
 
 QTEST_MAIN(QtNoteAppTests)

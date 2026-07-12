@@ -7,10 +7,19 @@ import QtQuick.Layouts
 ColumnLayout {
     id: root
 
+    readonly property ChronoTokens fallbackTokens: ChronoTokens {
+        fontUi: root.uiFontFamily
+        baseFontSize: root.uiFontSize
+    }
+    readonly property var tokens: root.theme ? root.theme : root.fallbackTokens
+
     property string eventText: ""
     property string eventMeta: ""
     property string eventRepeat: ""
     property bool readOnly: false
+    property var theme: null
+    property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
+    property int uiFontSize: theme ? theme.baseFontSize : 12
     property alias inputActiveFocus: detailEditor.activeFocus
 
     signal saveRequested(string text)
@@ -29,19 +38,19 @@ ColumnLayout {
 
     Text {
         text: root.readOnly ? "收纳详情" : "便签详情"
-        color: "#071426"
-        font.pixelSize: 23
+        color: root.tokens.ink
+        font.pixelSize: root.tokens.sizeTitle + 7
         font.weight: Font.Bold
-        font.family: "Microsoft YaHei UI"
+        font.family: root.tokens.fontUi
         renderType: Text.NativeRendering
     }
 
     Text {
         Layout.fillWidth: true
         text: root.eventMeta
-        color: "#607086"
-        font.pixelSize: 13
-        font.family: "Microsoft YaHei UI"
+        color: root.tokens.muted
+        font.pixelSize: root.tokens.sizeBody + 1
+        font.family: root.tokens.fontUi
         wrapMode: Text.WordWrap
         renderType: Text.NativeRendering
     }
@@ -49,9 +58,13 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        radius: 18
-        color: "#99ffffff"
-        border.width: 0
+        radius: root.tokens.radiusLg
+        color: detailEditor.activeFocus ? "#f8fff7" : "#99ffffff"
+        border.width: 1
+        border.color: detailEditor.activeFocus ? root.tokens.accentMint : "#00ffffff"
+
+        Behavior on color { ColorAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
+        Behavior on border.color { ColorAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
 
         TextArea {
             id: detailEditor
@@ -61,11 +74,11 @@ ColumnLayout {
             readOnly: root.readOnly
             wrapMode: TextEdit.WrapAnywhere
             selectByMouse: true
-            font.pixelSize: 14
-            font.family: "Microsoft YaHei UI"
+            font.pixelSize: root.tokens.sizeBody + 2
+            font.family: root.tokens.fontUi
             color: root.readOnly ? "#46566f" : "#172033"
-            selectedTextColor: "#071426"
-            selectionColor: "#f4d676"
+            selectedTextColor: root.tokens.ink
+            selectionColor: root.tokens.accentYellowSoft
             renderType: Text.NativeRendering
             background: Item {}
 
@@ -83,9 +96,9 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !root.readOnly
         text: "可直接编辑，按 Ctrl+Enter 保存。"
-        color: "#7a879b"
-        font.pixelSize: 12
-        font.family: "Microsoft YaHei UI"
+        color: root.tokens.mutedSoft
+        font.pixelSize: root.tokens.sizeBody
+        font.family: root.tokens.fontUi
         renderType: Text.NativeRendering
     }
 
@@ -96,9 +109,9 @@ ColumnLayout {
 
         Text {
             text: "重复"
-            color: "#607086"
-            font.pixelSize: 12
-            font.family: "Microsoft YaHei UI"
+            color: root.tokens.muted
+            font.pixelSize: root.tokens.sizeBody
+            font.family: root.tokens.fontUi
             renderType: Text.NativeRendering
         }
 
@@ -106,6 +119,9 @@ ColumnLayout {
             text: "无"
             widthHint: 44
             active: root.eventRepeat.length === 0
+            theme: root.tokens
+            uiFontFamily: root.uiFontFamily
+            uiFontSize: root.uiFontSize
             onClicked: root.repeatRequested("")
         }
 
@@ -113,6 +129,9 @@ ColumnLayout {
             text: "每天"
             widthHint: 52
             active: root.eventRepeat === "daily"
+            theme: root.tokens
+            uiFontFamily: root.uiFontFamily
+            uiFontSize: root.uiFontSize
             onClicked: root.repeatRequested("daily")
         }
 
@@ -120,6 +139,9 @@ ColumnLayout {
             text: "每周"
             widthHint: 52
             active: root.eventRepeat === "weekly"
+            theme: root.tokens
+            uiFontFamily: root.uiFontFamily
+            uiFontSize: root.uiFontSize
             onClicked: root.repeatRequested("weekly")
         }
 
@@ -127,6 +149,9 @@ ColumnLayout {
             text: "每月"
             widthHint: 52
             active: root.eventRepeat === "monthly"
+            theme: root.tokens
+            uiFontFamily: root.uiFontFamily
+            uiFontSize: root.uiFontSize
             onClicked: root.repeatRequested("monthly")
         }
 
@@ -134,6 +159,9 @@ ColumnLayout {
             text: "每年"
             widthHint: 52
             active: root.eventRepeat === "yearly"
+            theme: root.tokens
+            uiFontFamily: root.uiFontFamily
+            uiFontSize: root.uiFontSize
             onClicked: root.repeatRequested("yearly")
         }
     }
@@ -151,16 +179,19 @@ ColumnLayout {
             color: "#ffffff"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            font.pixelSize: 14
+            font.pixelSize: root.tokens.sizeBody + 2
             font.weight: Font.Bold
-            font.family: "Microsoft YaHei UI"
+            font.family: root.tokens.fontUi
             renderType: Text.NativeRendering
         }
 
         background: Rectangle {
-            radius: 16
-            color: saveButton.hovered ? "#245db6" : "#2d68c7"
-            Behavior on color { ColorAnimation { duration: 130 } }
+            radius: root.tokens.radiusMd
+            color: saveButton.pressed ? "#1f56aa" : saveButton.hovered ? "#245db6" : root.tokens.accentBlue
+            Behavior on color { ColorAnimation { duration: root.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
+
+        scale: saveButton.pressed ? 0.99 : saveButton.hovered ? 1.01 : 1
+        Behavior on scale { NumberAnimation { duration: root.tokens.motionFast; easing.type: Easing.OutCubic } }
     }
 }

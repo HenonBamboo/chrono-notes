@@ -6,13 +6,20 @@ import QtQuick.Controls
 Item {
     id: search
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens fallbackTokens: ChronoTokens {
+        fontUi: search.uiFontFamily
+        baseFontSize: search.uiFontSize
+    }
+    readonly property var tokens: search.theme ? search.theme : search.fallbackTokens
 
     property bool open: false
     property string query: ""
     property int completionFilter: -1
-    property color inkColor: tokens.ink
-    property color mutedColor: tokens.muted
+    property color inkColor: search.tokens.ink
+    property color mutedColor: search.tokens.muted
+    property var theme: null
+    property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
+    property int uiFontSize: theme ? theme.baseFontSize : 12
     property alias inputActiveFocus: field.activeFocus
 
     signal queryEdited(string text)
@@ -39,30 +46,31 @@ Item {
     opacity: open || query.length > 0 ? 1 : 0
     clip: true
 
-    Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on height { NumberAnimation { duration: search.tokens.motionMedium; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: search.tokens.motionFast; easing.type: Easing.OutCubic } }
 
     Rectangle {
         anchors.fill: parent
-        radius: tokens.radiusMd
+        radius: search.tokens.radiusMd
         color: "#ccfffef7"
         border.width: 1
-        border.color: field.activeFocus ? "#552d68c7" : tokens.lineSoft
+        border.color: field.activeFocus ? "#552d68c7" : search.tokens.lineSoft
 
         TextField {
             id: field
+            objectName: "searchInput"
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             height: 34
-            anchors.leftMargin: tokens.space3
+            anchors.leftMargin: search.tokens.space3
             anchors.rightMargin: clearButton.width + 10
             placeholderText: "搜索全部便签，按 Esc 关闭"
-            font.pixelSize: 13
-            font.family: tokens.fontUi
+            font.pixelSize: search.tokens.sizeBody + 1
+            font.family: search.tokens.fontUi
             color: search.inkColor
-            placeholderTextColor: tokens.mutedSoft
-            selectionColor: tokens.accentYellowSoft
+            placeholderTextColor: search.tokens.mutedSoft
+            selectionColor: search.tokens.accentYellowSoft
             selectedTextColor: search.inkColor
             renderType: Text.NativeRendering
             background: Item {}
@@ -85,7 +93,7 @@ Item {
         Button {
             id: clearButton
             anchors.right: parent.right
-            anchors.rightMargin: tokens.space2
+            anchors.rightMargin: search.tokens.space2
             anchors.top: parent.top
             anchors.topMargin: 5
             width: 24
@@ -101,32 +109,35 @@ Item {
                 text: clearButton.text
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                color: clearButton.hovered ? tokens.danger : search.mutedColor
-                font.pixelSize: 15
-                font.family: tokens.fontUi
+                color: clearButton.hovered ? search.tokens.danger : search.mutedColor
+                font.pixelSize: search.tokens.sizeTitle + 1
+                font.family: search.tokens.fontUi
                 renderType: Text.NativeRendering
             }
 
             background: Rectangle {
                 radius: width / 2
-                color: clearButton.hovered ? tokens.dangerSoft : "transparent"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color: clearButton.hovered ? search.tokens.dangerSoft : "transparent"
+                Behavior on color { ColorAnimation { duration: search.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
         }
 
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: tokens.space2
+            anchors.leftMargin: search.tokens.space2
             anchors.right: parent.right
-            anchors.rightMargin: tokens.space2
+            anchors.rightMargin: search.tokens.space2
             anchors.top: field.bottom
             height: 28
-            spacing: tokens.space2
+            spacing: search.tokens.space2
 
             ToolPill {
                 text: "全部"
                 widthHint: 56
                 active: search.completionFilter < 0
+                theme: search.tokens
+                uiFontFamily: search.uiFontFamily
+                uiFontSize: search.uiFontSize
                 onClicked: search.completionFilterRequested(-1)
             }
 
@@ -134,6 +145,9 @@ Item {
                 text: "未完成"
                 widthHint: 64
                 active: search.completionFilter === 0
+                theme: search.tokens
+                uiFontFamily: search.uiFontFamily
+                uiFontSize: search.uiFontSize
                 onClicked: search.completionFilterRequested(0)
             }
 
@@ -141,6 +155,9 @@ Item {
                 text: "已完成"
                 widthHint: 64
                 active: search.completionFilter === 1
+                theme: search.tokens
+                uiFontFamily: search.uiFontFamily
+                uiFontSize: search.uiFontSize
                 onClicked: search.completionFilterRequested(1)
             }
         }

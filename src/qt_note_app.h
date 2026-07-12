@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QVector>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 #ifndef MAX_PATH
@@ -39,6 +40,9 @@ class NoteApp : public QAbstractListModel {
     Q_PROPERTY(QString apiUrl READ apiUrl WRITE setApiUrl NOTIFY configChanged)
     Q_PROPERTY(QString apiKey READ apiKey WRITE setApiKey NOTIFY configChanged)
     Q_PROPERTY(QString modelName READ modelName WRITE setModelName NOTIFY configChanged)
+    Q_PROPERTY(QString uiFontFamily READ uiFontFamily WRITE setUiFontFamily NOTIFY configChanged)
+    Q_PROPERTY(int uiFontSize READ uiFontSize WRITE setUiFontSize NOTIFY configChanged)
+    Q_PROPERTY(QStringList uiFontFamilies READ uiFontFamilies CONSTANT)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY undoChanged)
 
 public:
@@ -90,6 +94,11 @@ public:
     void setApiKey(const QString &value);
     QString modelName() const;
     void setModelName(const QString &value);
+    QString uiFontFamily() const;
+    void setUiFontFamily(const QString &value);
+    int uiFontSize() const;
+    void setUiFontSize(int value);
+    QStringList uiFontFamilies() const;
 
     Q_INVOKABLE void addEvent(const QString &text);
     Q_INVOKABLE void toggleEvent(int id);

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -6,18 +8,29 @@ Rectangle {
     id: settingsPanel
     objectName: "settingsPanelSurface"
 
-    readonly property ChronoTokens tokens: ChronoTokens {}
+    readonly property ChronoTokens tokens: ChronoTokens {
+        fontUi: settingsPanel.uiFontFamily
+        baseFontSize: settingsPanel.uiFontSize
+    }
 
     property alias apiUrl: apiUrlField.text
     property alias apiKey: apiKeyField.text
     property alias modelName: modelField.text
+    property string uiFontFamily: "Microsoft YaHei UI"
+    property int uiFontSize: 12
+    property var uiFontFamilies: ["Microsoft YaHei UI"]
     property bool clearAllArmed: false
     property bool apiExpanded: true
+    property bool appearanceExpanded: true
     property bool dataExpanded: true
-    property bool inputActiveFocus: apiUrlField.activeFocus || apiKeyField.activeFocus || modelField.activeFocus
-    property color surfaceColor: tokens.paper
+    property bool inputActiveFocus: apiUrlField.activeFocus || apiKeyField.activeFocus || modelField.activeFocus ||
+                                    fontFamilyCombo.activeFocus || fontSizeBox.activeFocus
+    property color surfaceColor: tokens.drawerPaper
+    readonly property var fontPickerModel: uiFontFamilies && uiFontFamilies.length > 0
+                                           ? uiFontFamilies
+                                           : [uiFontFamily.length > 0 ? uiFontFamily : "Microsoft YaHei UI"]
 
-    signal saveRequested(string url, string key, string model)
+    signal saveRequested(string url, string key, string model, string fontFamily, int fontSize)
     signal clearCompletedRequested()
     signal clearCompletedAllRequested()
     signal clearCurrentRequested()
@@ -31,10 +44,28 @@ Rectangle {
     border.color: Qt.rgba(106 / 255, 138 / 255, 91 / 255, 0.18)
     border.width: 1
 
+    function fontIndex(family) {
+        for (let index = 0; index < fontPickerModel.length; ++index) {
+            if (String(fontPickerModel[index]).toLowerCase() === family.toLowerCase())
+                return index
+        }
+        return -1
+    }
+
+    function syncFontControls() {
+        const target = uiFontFamily.length > 0 ? uiFontFamily : "Microsoft YaHei UI"
+        const index = fontIndex(target)
+        fontFamilyCombo.currentIndex = index >= 0 ? index : 0
+        if (fontSizeBox.value !== uiFontSize)
+            fontSizeBox.value = uiFontSize
+    }
+
     function releaseInputFocus() {
         apiUrlField.focus = false
         apiKeyField.focus = false
         modelField.focus = false
+        fontFamilyCombo.focus = false
+        fontSizeBox.focus = false
     }
 
     function resetTextViews() {
@@ -52,6 +83,10 @@ Rectangle {
         return apiExpanded
     }
 
+    function appearanceSectionExpanded() {
+        return appearanceExpanded
+    }
+
     function dataSectionExpanded() {
         return dataExpanded
     }
@@ -60,8 +95,53 @@ Rectangle {
         apiExpanded = !apiExpanded
     }
 
+    function toggleAppearanceSection() {
+        appearanceExpanded = !appearanceExpanded
+    }
+
     function toggleDataSection() {
         dataExpanded = !dataExpanded
+    }
+
+    onUiFontFamilyChanged: Qt.callLater(syncFontControls)
+    onUiFontSizeChanged: Qt.callLater(syncFontControls)
+    onUiFontFamiliesChanged: Qt.callLater(syncFontControls)
+    Component.onCompleted: syncFontControls()
+
+    component SettingsField: TextField {
+        id: field
+        selectByMouse: true
+        font.pixelSize: settingsPanel.tokens.sizeBody + 1
+        font.family: settingsPanel.tokens.fontUi
+        color: settingsPanel.tokens.ink
+        placeholderTextColor: settingsPanel.tokens.mutedSoft
+        selectionColor: settingsPanel.tokens.accentYellowSoft
+        selectedTextColor: settingsPanel.tokens.ink
+        background: Rectangle {
+            radius: settingsPanel.tokens.radiusSm
+            color: field.activeFocus ? "#f8fff7" : "#ccfffef7"
+            border.width: 1
+            border.color: field.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
+            Behavior on color { ColorAnimation { duration: settingsPanel.tokens.motionFast; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: settingsPanel.tokens.motionFast; easing.type: Easing.OutCubic } }
+        }
+    }
+
+    component SettingsCard: Rectangle {
+        property alias content: slot.data
+
+        Layout.fillWidth: true
+        color: settingsPanel.tokens.drawerCard
+        radius: settingsPanel.tokens.radiusMd
+        border.color: "#2288c57f"
+        implicitHeight: slot.implicitHeight + 28
+
+        ColumnLayout {
+            id: slot
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 10
+        }
     }
 
     ScrollView {
@@ -78,26 +158,18 @@ Rectangle {
                 objectName: "settingsTitle"
                 text: "设置"
                 color: settingsPanel.tokens.ink
-                font.pixelSize: 22
+                font.pixelSize: settingsPanel.tokens.sizeTitle + 8
                 font.weight: Font.DemiBold
+                font.family: settingsPanel.tokens.fontUi
                 Layout.fillWidth: true
+                renderType: Text.NativeRendering
             }
 
-            Rectangle {
+            SettingsCard {
                 objectName: "settingsApiCard"
-                Layout.fillWidth: true
-                color: "#bffffef7"
-                radius: settingsPanel.tokens.radiusMd
-                border.color: "#2288c57f"
-                implicitHeight: apiHeader.height + (apiSection.visible ? apiSection.implicitHeight + 14 : 0) + 18
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
-
+                content: [
                     RowLayout {
-                        id: apiHeader
                         Layout.fillWidth: true
                         spacing: 8
 
@@ -105,92 +177,135 @@ Rectangle {
                             objectName: "settingsApiTitle"
                             text: "AI 接口"
                             color: settingsPanel.tokens.ink
-                            font.pixelSize: 16
+                            font.pixelSize: settingsPanel.tokens.sizeTitle + 2
                             font.weight: Font.DemiBold
+                            font.family: settingsPanel.tokens.fontUi
                             Layout.fillWidth: true
+                            renderType: Text.NativeRendering
                         }
 
                         ToolPill {
                             objectName: "settingsApiToggle"
                             text: settingsPanel.apiExpanded ? "收起" : "展开"
                             widthHint: 54
+                            uiFontFamily: settingsPanel.uiFontFamily
+                            uiFontSize: settingsPanel.uiFontSize
                             onClicked: settingsPanel.toggleApiSection()
                         }
-                    }
+                    },
 
                     ColumnLayout {
-                        id: apiSection
                         visible: settingsPanel.apiExpanded
                         Layout.fillWidth: true
                         spacing: 8
 
-                        TextField {
+                        SettingsField {
                             id: apiUrlField
                             objectName: "apiUrlField"
                             Layout.fillWidth: true
                             placeholderText: "API 地址"
-                            background: Rectangle {
-                                radius: settingsPanel.tokens.radiusSm
-                                color: "#ccfffef7"
-                                border.width: 1
-                                border.color: apiUrlField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
-                            }
                         }
 
-                        TextField {
+                        SettingsField {
                             id: apiKeyField
                             objectName: "apiKeyField"
                             Layout.fillWidth: true
                             placeholderText: "API Key"
                             echoMode: TextInput.Password
-                            background: Rectangle {
-                                radius: settingsPanel.tokens.radiusSm
-                                color: "#ccfffef7"
-                                border.width: 1
-                                border.color: apiKeyField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
-                            }
                         }
 
-                        TextField {
+                        SettingsField {
                             id: modelField
                             objectName: "modelField"
                             Layout.fillWidth: true
                             placeholderText: "模型名称"
-                            background: Rectangle {
-                                radius: settingsPanel.tokens.radiusSm
-                                color: "#ccfffef7"
-                                border.width: 1
-                                border.color: modelField.activeFocus ? settingsPanel.tokens.accentMint : settingsPanel.tokens.lineSoft
-                            }
+                        }
+                    }
+                ]
+            }
+
+            SettingsCard {
+                objectName: "settingsAppearanceCard"
+
+                content: [
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            objectName: "settingsAppearanceTitle"
+                            text: "界面"
+                            color: settingsPanel.tokens.ink
+                            font.pixelSize: settingsPanel.tokens.sizeTitle + 2
+                            font.weight: Font.DemiBold
+                            font.family: settingsPanel.tokens.fontUi
+                            Layout.fillWidth: true
+                            renderType: Text.NativeRendering
                         }
 
                         ToolPill {
-                            objectName: "settingsSaveButton"
-                            text: "保存 AI 设置"
-                            widthHint: 116
-                            primary: true
-                            Layout.alignment: Qt.AlignRight
-                            onClicked: settingsPanel.saveRequested(apiUrlField.text, apiKeyField.text, modelField.text)
+                            objectName: "settingsAppearanceToggle"
+                            text: settingsPanel.appearanceExpanded ? "收起" : "展开"
+                            widthHint: 54
+                            uiFontFamily: settingsPanel.uiFontFamily
+                            uiFontSize: settingsPanel.uiFontSize
+                            onClicked: settingsPanel.toggleAppearanceSection()
+                        }
+                    },
+
+                    GridLayout {
+                        visible: settingsPanel.appearanceExpanded
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 10
+                        rowSpacing: 8
+
+                        Text {
+                            text: "界面字体"
+                            color: settingsPanel.tokens.muted
+                            font.pixelSize: settingsPanel.tokens.sizeBody
+                            font.family: settingsPanel.tokens.fontUi
+                            renderType: Text.NativeRendering
+                        }
+
+                        ComboBox {
+                            id: fontFamilyCombo
+                            objectName: "settingsFontFamilyCombo"
+                            Layout.fillWidth: true
+                            model: settingsPanel.fontPickerModel
+                            font.pixelSize: settingsPanel.tokens.sizeBody + 1
+                            font.family: settingsPanel.tokens.fontUi
+                            Component.onCompleted: settingsPanel.syncFontControls()
+                        }
+
+                        Text {
+                            text: "字号"
+                            color: settingsPanel.tokens.muted
+                            font.pixelSize: settingsPanel.tokens.sizeBody
+                            font.family: settingsPanel.tokens.fontUi
+                            renderType: Text.NativeRendering
+                        }
+
+                        SpinBox {
+                            id: fontSizeBox
+                            objectName: "settingsFontSizeField"
+                            Layout.fillWidth: true
+                            from: 10
+                            to: 18
+                            value: settingsPanel.uiFontSize
+                            editable: true
+                            font.pixelSize: settingsPanel.tokens.sizeBody + 1
+                            font.family: settingsPanel.tokens.fontUi
                         }
                     }
-                }
+                ]
             }
 
-            Rectangle {
+            SettingsCard {
                 objectName: "settingsDataCard"
-                Layout.fillWidth: true
-                color: "#bffffef7"
-                radius: settingsPanel.tokens.radiusMd
-                border.color: "#2288c57f"
-                implicitHeight: dataHeader.height + (dataSection.visible ? dataSection.implicitHeight + 14 : 0) + 18
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
-
+                content: [
                     RowLayout {
-                        id: dataHeader
                         Layout.fillWidth: true
                         spacing: 8
 
@@ -198,21 +313,24 @@ Rectangle {
                             objectName: "settingsDataTitle"
                             text: "便签数据"
                             color: settingsPanel.tokens.ink
-                            font.pixelSize: 16
+                            font.pixelSize: settingsPanel.tokens.sizeTitle + 2
                             font.weight: Font.DemiBold
+                            font.family: settingsPanel.tokens.fontUi
                             Layout.fillWidth: true
+                            renderType: Text.NativeRendering
                         }
 
                         ToolPill {
                             objectName: "settingsDataToggle"
                             text: settingsPanel.dataExpanded ? "收起" : "展开"
                             widthHint: 54
+                            uiFontFamily: settingsPanel.uiFontFamily
+                            uiFontSize: settingsPanel.uiFontSize
                             onClicked: settingsPanel.toggleDataSection()
                         }
-                    }
+                    },
 
                     ColumnLayout {
-                        id: dataSection
                         visible: settingsPanel.dataExpanded
                         Layout.fillWidth: true
                         spacing: 10
@@ -221,9 +339,11 @@ Rectangle {
                             objectName: "settingsDataDescription"
                             text: "这些操作只作用于便签数据，不影响项目树。"
                             color: settingsPanel.tokens.muted
-                            font.pixelSize: 13
+                            font.pixelSize: settingsPanel.tokens.sizeBody + 1
+                            font.family: settingsPanel.tokens.fontUi
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
+                            renderType: Text.NativeRendering
                         }
 
                         GridLayout {
@@ -236,6 +356,8 @@ Rectangle {
                                 objectName: "exportStickiesJsonButton"
                                 text: "导出便签 JSON"
                                 widthHint: 140
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 Layout.fillWidth: true
                                 onClicked: settingsPanel.exportJsonRequested()
                             }
@@ -244,6 +366,8 @@ Rectangle {
                                 objectName: "importStickiesJsonButton"
                                 text: "导入便签 JSON"
                                 widthHint: 140
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 Layout.fillWidth: true
                                 onClicked: settingsPanel.importJsonRequested()
                             }
@@ -252,6 +376,8 @@ Rectangle {
                                 objectName: "exportStickiesMarkdownButton"
                                 text: "导出便签 Markdown"
                                 widthHint: 160
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 Layout.fillWidth: true
                                 onClicked: settingsPanel.exportMarkdownRequested()
                             }
@@ -260,6 +386,8 @@ Rectangle {
                                 objectName: "clearCompletedStickiesButton"
                                 text: "清理已完成便签"
                                 widthHint: 150
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 danger: true
                                 Layout.fillWidth: true
                                 onClicked: settingsPanel.clearCompletedRequested()
@@ -269,6 +397,8 @@ Rectangle {
                                 objectName: "clearCurrentStickiesButton"
                                 text: "清空当前便签阶段"
                                 widthHint: 150
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 danger: true
                                 Layout.fillWidth: true
                                 onClicked: settingsPanel.clearCurrentRequested()
@@ -278,6 +408,8 @@ Rectangle {
                                 objectName: "clearAllStickiesButton"
                                 text: settingsPanel.clearAllArmed ? "确认清空全部便签" : "清空全部便签"
                                 widthHint: 150
+                                uiFontFamily: settingsPanel.uiFontFamily
+                                uiFontSize: settingsPanel.uiFontSize
                                 danger: true
                                 Layout.fillWidth: true
                                 onClicked: {
@@ -291,7 +423,19 @@ Rectangle {
                             }
                         }
                     }
-                }
+                ]
+            }
+
+            ToolPill {
+                objectName: "settingsSaveButton"
+                text: "保存设置"
+                widthHint: 112
+                primary: true
+                uiFontFamily: settingsPanel.uiFontFamily
+                uiFontSize: settingsPanel.uiFontSize
+                Layout.alignment: Qt.AlignRight
+                onClicked: settingsPanel.saveRequested(apiUrlField.text, apiKeyField.text, modelField.text,
+                                                        fontFamilyCombo.currentText, fontSizeBox.value)
             }
         }
     }

@@ -18,8 +18,13 @@ QtObject {
     readonly property color accentBlue: "#2d68c7"
     readonly property color accentBlueSoft: "#e8f0ff"
     readonly property color accentMint: "#88c57f"
+    readonly property color lightGlow: "#66ffffff"
+    readonly property color lightRing: "#44d7ead0"
+    readonly property color activeGlow: "#55d7ead0"
     readonly property color danger: "#b4534a"
     readonly property color dangerSoft: "#ffe7df"
+    readonly property color drawerPaper: "#f6f1dc"
+    readonly property color drawerCard: "#fffdf3"
 
     readonly property int space1: 4
     readonly property int space2: 8
@@ -34,10 +39,14 @@ QtObject {
     readonly property int radiusLg: 18
     readonly property int radiusPill: 999
 
-    readonly property string fontUi: "Microsoft YaHei UI"
+    property string fontUi: "Microsoft YaHei UI"
     readonly property string fontMono: "Cascadia Mono"
-    readonly property int sizeMeta: 11
-    readonly property int sizeBody: 12
-    readonly property int sizeTitle: 14
-    readonly property int drawerDuration: 170
+    property int baseFontSize: 12
+    readonly property int sizeMeta: Math.max(10, baseFontSize - 1)
+    readonly property int sizeBody: baseFontSize
+    readonly property int sizeTitle: baseFontSize + 2
+    readonly property int motionFast: 120
+    readonly property int motionMedium: 180
+    readonly property int motionSlow: 220
+    readonly property int drawerDuration: motionMedium
 }
