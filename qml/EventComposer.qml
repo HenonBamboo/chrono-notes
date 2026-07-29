@@ -42,15 +42,22 @@ RowLayout {
         font.pixelSize: composer.tokens.sizeBody + 2
         font.family: composer.tokens.fontUi
         color: composer.inkColor
-        selectionColor: composer.tokens.accentYellowSoft
+        selectionColor: composer.tokens.accentSoft
         selectedTextColor: composer.inkColor
+        maximumLength: 65536
+        activeFocusOnTab: true
         renderType: Text.NativeRendering
+
+        Accessible.role: Accessible.EditableText
+        Accessible.name: "新建便签"
+        Accessible.description: "输入便签内容，按 Enter 添加到当前阶段"
+
         background: Rectangle {
             radius: composer.tokens.radiusMd
-            color: "#ddfffef7"
-            border.color: input.activeFocus ? "#662d68c7" : composer.tokens.lineSoft
-            border.width: 1
-            Behavior on border.color { ColorAnimation { duration: composer.tokens.motionMedium; easing.type: Easing.OutCubic } }
+            color: composer.tokens.surface
+            border.color: input.activeFocus ? composer.tokens.focusRing : composer.tokens.border
+            border.width: input.activeFocus ? 2 : 1
+            Behavior on border.color { ColorAnimation { duration: composer.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
         onAccepted: {
             const trimmed = text.trim()

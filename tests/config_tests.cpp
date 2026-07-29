@@ -1,105 +1,153 @@
 #include "config.h"
 
-#include <stdio.h>
-#include <wchar.h>
+#include <QFile>
 
-static int failures = 0;
+#include <cstdio>
 
-static void expect_int(const char *name, int expected, int actual) {
+namespace {
+
+int failures = 0;
+
+void expectTrue(const char *name, bool value) {
+    if (!value) {
+        std::printf("FAIL %s\n", name);
+        ++failures;
+    }
+}
+
+void expectInt(const char *name, int expected, int actual) {
     if (expected != actual) {
-        printf("FAIL %s: expected %d, got %d\n", name, expected, actual);
-        failures++;
+        std::printf("FAIL %s: expected %d, got %d\n", name, expected, actual);
+        ++failures;
     }
 }
 
-static void expect_wstr(const char *name, const wchar_t *expected, const wchar_t *actual) {
-    if (wcscmp(expected, actual) != 0) {
-        printf("FAIL %s\n", name);
-        failures++;
+void expectString(const char *name, const QString &expected,
+                  const QString &actual) {
+    if (expected != actual) {
+        std::printf("FAIL %s\n", name);
+        ++failures;
     }
 }
 
-static void test_defaults_are_usable_without_key(void) {
-    AppConfig config;
-    config_defaults(&config);
-
-    expect_wstr("default api url", L"https://api.openai.com/v1/chat/completions", config.api_url);
-    expect_wstr("default model", L"gpt-4o-mini", config.model);
-    expect_wstr("default ui font family", L"Microsoft YaHei UI", config.ui_font_family);
-    expect_int("default ui font size", 12, config.ui_font_size);
-    expect_int("default ai disabled", 0, config_has_ai(&config));
+bool writeText(const QString &path, const QByteArray &contents) {
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
+           file.write(contents) == contents.size();
 }
 
-static void test_save_and_load_config(void) {
-    const wchar_t *path = L"config_test.ini";
-    AppConfig config;
+void testDefaultsAreUsableWithoutKey() {
+    const AppConfig config = defaultConfig();
+    expectString("default api url",
+                 QStringLiteral("https://api.openai.com/v1/chat/completions"),
+                 config.apiUrl);
+    expectString("default model is explicit", QString(), config.model);
+    expectString("default ui font family",
+                 QStringLiteral("Microsoft YaHei UI"),
+                 config.uiFontFamily);
+    expectInt("default ui font size", 14, config.uiFontSize);
+    expectTrue("default ai key is absent", config.legacyApiKey.isEmpty());
+}
+
+void testSaveAndLoadConfig() {
+    const QString path = QStringLiteral("config_test.ini");
+    AppConfig config = defaultConfig();
+    config.apiUrl = QStringLiteral("https://example.test/v1/chat/completions");
+    config.legacyApiKey = QStringLiteral("test-key");
+    config.model = QStringLiteral("test-model");
+    config.uiFontFamily = QStringLiteral("Segoe UI");
+    config.uiFontSize = 15;
+    config.allowLocalHttp = true;
+    config.reduceMotion = true;
+
+    QString error;
+    expectTrue("config save succeeds", saveConfig(path, config, &error));
     AppConfig loaded;
-
-    config_defaults(&config);
-    wcscpy(config.api_url, L"https://example.test/v1/chat/completions");
-    wcscpy(config.api_key, L"test-key");
-    wcscpy(config.model, L"test-model");
-    wcscpy(config.ui_font_family, L"Segoe UI");
-    config.ui_font_size = 15;
-
-    expect_int("config save succeeds", 1, config_save(&config, path));
-    config_defaults(&loaded);
-    expect_int("config load succeeds", 1, config_load(&loaded, path));
-
-    expect_wstr("loaded api url", config.api_url, loaded.api_url);
-    expect_wstr("loaded api key", config.api_key, loaded.api_key);
-    expect_wstr("loaded model", config.model, loaded.model);
-    expect_wstr("loaded ui font family", config.ui_font_family, loaded.ui_font_family);
-    expect_int("loaded ui font size", config.ui_font_size, loaded.ui_font_size);
-    expect_int("loaded ai enabled", 1, config_has_ai(&loaded));
-
-    _wremove(path);
+    expectTrue("config load succeeds", loadConfig(path, &loaded, &error));
+    expectString("loaded api url", config.apiUrl, loaded.apiUrl);
+    expectTrue("api key is not persisted in settings",
+               loaded.legacyApiKey.isEmpty());
+    expectString("loaded model", config.model, loaded.model);
+    expectString("loaded ui font family", config.uiFontFamily,
+                 loaded.uiFontFamily);
+    expectInt("loaded ui font size", config.uiFontSize, loaded.uiFontSize);
+    expectTrue("loaded local http setting", loaded.allowLocalHttp);
+    expectTrue("loaded reduce motion setting", loaded.reduceMotion);
+    QFile::remove(path);
 }
 
-static void test_legacy_config_uses_font_defaults(void) {
-    const wchar_t *path = L"config_legacy_test.ini";
+void testLegacyConfigUsesDefaultsAndExposesMigrationKey() {
+    const QString path = QStringLiteral("config_legacy_test.ini");
+    expectTrue(
+        "legacy fixture writes",
+        writeText(path,
+                  QByteArrayLiteral(
+                      "api_url=https://legacy.test/v1/chat/completions\n"
+                      "api_key=legacy-key\n"
+                      "model=legacy-model\n")));
+
     AppConfig loaded;
-    FILE *file = _wfopen(path, L"w, ccs=UTF-8");
-    fwprintf(file, L"api_url=https://legacy.test/v1/chat/completions\n");
-    fwprintf(file, L"api_key=legacy-key\n");
-    fwprintf(file, L"model=legacy-model\n");
-    fclose(file);
-
-    config_defaults(&loaded);
-    expect_int("legacy config load succeeds", 1, config_load(&loaded, path));
-    expect_wstr("legacy default ui font family", L"Microsoft YaHei UI", loaded.ui_font_family);
-    expect_int("legacy default ui font size", 12, loaded.ui_font_size);
-
-    _wremove(path);
+    QString error;
+    expectTrue("legacy config load succeeds",
+               loadConfig(path, &loaded, &error));
+    expectString("legacy default ui font family",
+                 QStringLiteral("Microsoft YaHei UI"),
+                 loaded.uiFontFamily);
+    expectInt("legacy default ui font size", 14, loaded.uiFontSize);
+    expectString("legacy key available for credential migration",
+                 QStringLiteral("legacy-key"), loaded.legacyApiKey);
+    QFile::remove(path);
 }
 
-static void test_invalid_font_size_falls_back_to_default(void) {
-    const wchar_t *path = L"config_invalid_font_size_test.ini";
+void testInvalidFontSizeFallsBackToDefault() {
+    const QString path = QStringLiteral("config_invalid_font_size_test.ini");
+    expectTrue("invalid font fixture writes",
+               writeText(path,
+                         QByteArrayLiteral("ui_font_family=Segoe UI\n"
+                                           "ui_font_size=99\n")));
+
     AppConfig loaded;
-    FILE *file = _wfopen(path, L"w, ccs=UTF-8");
-    fwprintf(file, L"ui_font_family=Segoe UI\n");
-    fwprintf(file, L"ui_font_size=99\n");
-    fclose(file);
-
-    config_defaults(&loaded);
-    expect_int("invalid font size config load succeeds", 1, config_load(&loaded, path));
-    expect_wstr("invalid font size keeps family", L"Segoe UI", loaded.ui_font_family);
-    expect_int("invalid font size defaults", 12, loaded.ui_font_size);
-
-    _wremove(path);
+    QString error;
+    expectTrue("invalid font size config load succeeds",
+               loadConfig(path, &loaded, &error));
+    expectString("invalid font size keeps family",
+                 QStringLiteral("Segoe UI"), loaded.uiFontFamily);
+    expectInt("invalid font size defaults", 14, loaded.uiFontSize);
+    QFile::remove(path);
 }
 
-int main(void) {
-    test_defaults_are_usable_without_key();
-    test_save_and_load_config();
-    test_legacy_config_uses_font_defaults();
-    test_invalid_font_size_falls_back_to_default();
+void testFutureConfigIsRejectedWithoutMutation() {
+    const QString path = QStringLiteral("config_future_test.ini");
+    expectTrue("future config fixture writes",
+               writeText(path,
+                         QByteArrayLiteral("version=999\n"
+                                           "model=future-model\n")));
+
+    AppConfig loaded = defaultConfig();
+    loaded.model = QStringLiteral("keep-me");
+    QString error;
+    expectTrue("future config is rejected",
+               !loadConfig(path, &loaded, &error));
+    expectString("rejected config does not mutate destination",
+                 QStringLiteral("keep-me"), loaded.model);
+    expectTrue("future config error is explicit",
+               error.contains(QStringLiteral("更高版本")));
+    QFile::remove(path);
+}
+
+} // namespace
+
+int main() {
+    testDefaultsAreUsableWithoutKey();
+    testSaveAndLoadConfig();
+    testLegacyConfigUsesDefaultsAndExposesMigrationKey();
+    testInvalidFontSizeFallsBackToDefault();
+    testFutureConfigIsRejectedWithoutMutation();
 
     if (failures != 0) {
-        printf("%d config test(s) failed\n", failures);
+        std::printf("%d config test(s) failed\n", failures);
         return 1;
     }
-
-    printf("config tests passed\n");
+    std::printf("config tests passed\n");
     return 0;
 }

@@ -1,0 +1,37 @@
+#include <windows.h>
+
+1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/chrono_notes.ico"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName", "ChronoNotes\0"
+            VALUE "FileDescription", "ChronoNotes desktop planning notebook\0"
+            VALUE "FileVersion", "@PROJECT_VERSION@\0"
+            VALUE "InternalName", "ChronoNotes\0"
+            VALUE "LegalCopyright", "Copyright (c) ChronoNotes contributors\0"
+            VALUE "OriginalFilename", "ChronoNotes.exe\0"
+            VALUE "ProductName", "ChronoNotes\0"
+            VALUE "ProductVersion", "@PROJECT_VERSION@\0"
+            VALUE "Comments", "Application ID: @CHRONONOTES_APP_ID@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0804, 1200
+    END
+END

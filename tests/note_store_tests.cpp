@@ -2,6 +2,17 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <string>
+
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QStringList>
+#include <QTemporaryDir>
+#include <QUuid>
+#include <QVariant>
 
 static int failures = 0;
 
@@ -17,6 +28,60 @@ static void expect_wstr(const char *name, const wchar_t *expected, const wchar_t
         printf("FAIL %s\n", name);
         failures++;
     }
+}
+
+static void expect_true(const char *name, int actual) {
+    expect_int(name, 1, actual ? 1 : 0);
+}
+
+static void expect_last_error(const char *name) {
+    const wchar_t *error = note_store_last_error();
+    if (error == NULL || error[0] == L'\0') {
+        printf("FAIL %s: expected a diagnostic error\n", name);
+        failures++;
+    }
+}
+
+static bool execute_sql(const QString &path, const QStringList &statements) {
+    const QString connection_name = QStringLiteral("note_store_test_%1")
+                                        .arg(QUuid::createUuid().toString(QUuid::Id128));
+    bool success = false;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection_name);
+        database.setDatabaseName(path);
+        success = database.open();
+        if (success) {
+            QSqlQuery query(database);
+            for (const QString &statement : statements) {
+                if (!query.exec(statement)) {
+                    success = false;
+                    break;
+                }
+            }
+        }
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection_name);
+    return success;
+}
+
+static int sqlite_scalar_int(const QString &path, const QString &statement) {
+    const QString connection_name = QStringLiteral("note_store_test_%1")
+                                        .arg(QUuid::createUuid().toString(QUuid::Id128));
+    int result = -1;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection_name);
+        database.setDatabaseName(path);
+        if (database.open()) {
+            QSqlQuery query(database);
+            if (query.exec(statement) && query.next()) {
+                result = query.value(0).toInt();
+            }
+        }
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection_name);
+    return result;
 }
 
 static void test_add_filter_and_toggle(void) {
@@ -196,10 +261,11 @@ static void test_restore_deleted_event_preserves_identity(void) {
 }
 
 static void test_store_grows_beyond_legacy_stack_limit(void) {
+    const int legacy_stack_limit = 512;
     NoteStore store;
     note_store_init(&store);
 
-    for (int i = 0; i < NOTE_MAX_EVENTS + 24; ++i) {
+    for (int i = 0; i < legacy_stack_limit + 24; ++i) {
         wchar_t text[64];
         swprintf(text, 64, L"bulk-%d", i);
         NoteEvent *event = note_store_add(&store, NOTE_STAGE_DAY, L"2026-05-24", text);
@@ -210,10 +276,215 @@ static void test_store_grows_beyond_legacy_stack_limit(void) {
         }
     }
 
-    expect_int("dynamic store count", NOTE_MAX_EVENTS + 24, store.count);
+    expect_int("dynamic store count", legacy_stack_limit + 24, store.count);
+    expect_int("production planning capacity", 10000, NOTE_MAX_EVENTS);
 }
 
-int main(void) {
+static void test_text_limit_rejects_overflow_without_mutating_store(void) {
+    expect_int("text capacity includes terminator", 65537, NOTE_TEXT_MAX);
+
+    NoteStore store;
+    note_store_init(&store);
+    const std::wstring maximum_text((size_t)NOTE_TEXT_MAX - 1, L'x');
+    NoteEvent *event = note_store_add(&store, NOTE_STAGE_DAY, L"2026-07-12", maximum_text.c_str());
+    expect_true("maximum text accepted", event != NULL);
+    if (event == NULL) {
+        return;
+    }
+    expect_int("maximum text preserved", NOTE_TEXT_MAX - 1, (int)wcslen(event->text));
+
+    const int count_before = store.count;
+    const int next_id_before = store.next_id;
+    const std::wstring oversized_text((size_t)NOTE_TEXT_MAX, L'y');
+    expect_true("oversized add rejected",
+                note_store_add(&store, NOTE_STAGE_DAY, L"2026-07-12", oversized_text.c_str()) == NULL);
+    expect_int("oversized add preserves count", count_before, store.count);
+    expect_int("oversized add preserves next id", next_id_before, store.next_id);
+    expect_last_error("oversized add explains failure");
+
+    expect_int("oversized update rejected", 0,
+               note_store_update_text(&store, event->id, oversized_text.c_str()));
+    expect_int("oversized update preserves text", NOTE_TEXT_MAX - 1, (int)wcslen(event->text));
+    expect_last_error("oversized update explains failure");
+}
+
+static void test_long_text_and_series_roundtrip_across_persistence_formats(void) {
+    QTemporaryDir directory;
+    expect_true("long roundtrip temporary directory", directory.isValid());
+    if (!directory.isValid()) {
+        return;
+    }
+
+    NoteStore store;
+    note_store_init(&store);
+    const std::wstring long_text((size_t)NOTE_TEXT_MAX - 1, L'z');
+    NoteEvent *event = note_store_add(&store, NOTE_STAGE_DAY, L"2026-07-12", long_text.c_str());
+    expect_true("long roundtrip event created", event != NULL);
+    if (event == NULL) {
+        return;
+    }
+    expect_int("explicit series accepted", 1,
+               note_store_set_series_id(&store, event->id, L"series-fixed-001"));
+
+    const std::wstring sqlite_path = directory.filePath(QStringLiteral("notes.sqlite")).toStdWString();
+    printf("  persistence: sqlite save\n"); fflush(stdout);
+    expect_int("long sqlite save", 1, note_store_save_sqlite(&store, sqlite_path.c_str()));
+    NoteStore sqlite_loaded;
+    note_store_init(&sqlite_loaded);
+    printf("  persistence: sqlite load\n"); fflush(stdout);
+    expect_int("long sqlite load", 1, note_store_load_sqlite(&sqlite_loaded, sqlite_path.c_str()));
+    expect_int("long sqlite count", 1, sqlite_loaded.count);
+    if (sqlite_loaded.count == 1) {
+        expect_int("long sqlite text preserved", NOTE_TEXT_MAX - 1,
+                   (int)wcslen(sqlite_loaded.items[0].text));
+        expect_wstr("sqlite series preserved", L"series-fixed-001", sqlite_loaded.items[0].series_id);
+    }
+
+    const std::wstring text_path = directory.filePath(QStringLiteral("notes.db.txt")).toStdWString();
+    printf("  persistence: flat save\n"); fflush(stdout);
+    expect_int("long legacy save", 1, note_store_save(&store, text_path.c_str()));
+    NoteStore text_loaded;
+    note_store_init(&text_loaded);
+    printf("  persistence: flat load\n"); fflush(stdout);
+    expect_int("long legacy load", 1, note_store_load(&text_loaded, text_path.c_str()));
+    expect_int("long legacy count", 1, text_loaded.count);
+    if (text_loaded.count == 1) {
+        expect_int("long legacy text preserved", NOTE_TEXT_MAX - 1,
+                   (int)wcslen(text_loaded.items[0].text));
+        expect_wstr("legacy series preserved", L"series-fixed-001", text_loaded.items[0].series_id);
+    }
+}
+
+static void test_legacy_sqlite_migrates_to_schema_v2_with_stable_series(void) {
+    QTemporaryDir directory;
+    expect_true("migration temporary directory", directory.isValid());
+    if (!directory.isValid()) {
+        return;
+    }
+    const QString path = directory.filePath(QStringLiteral("legacy.sqlite"));
+    expect_true("legacy database created", execute_sql(path, {
+        QStringLiteral("CREATE TABLE notes ("
+                       "id INTEGER PRIMARY KEY, stage INTEGER NOT NULL, date_key TEXT NOT NULL, "
+                       "text TEXT NOT NULL, completed INTEGER NOT NULL, completed_at INTEGER NOT NULL, "
+                       "created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, "
+                       "repeat TEXT NOT NULL DEFAULT '')"),
+        QStringLiteral("INSERT INTO notes VALUES "
+                       "(7, 0, '2026-07-12', 'legacy recurring note', 0, 0, 10, 10, 'daily')"),
+        QStringLiteral("PRAGMA user_version=1")
+    }));
+
+    NoteStore loaded;
+    note_store_init(&loaded);
+    const std::wstring wide_path = path.toStdWString();
+    expect_int("legacy schema loads", 1, note_store_load_sqlite(&loaded, wide_path.c_str()));
+    expect_int("legacy schema row preserved", 1, loaded.count);
+    expect_int("schema migrated to v2", 2, sqlite_scalar_int(path, QStringLiteral("PRAGMA user_version")));
+    expect_int("series index created", 1, sqlite_scalar_int(
+        path,
+        QStringLiteral("SELECT count(*) FROM sqlite_master "
+                       "WHERE type='index' AND name='idx_notes_series_id'")));
+    const QFileInfo migrated_database(path);
+    const QStringList backups = QDir(migrated_database.absolutePath()).entryList(
+        {migrated_database.fileName() + QStringLiteral(".pre-v2-*.bak")},
+        QDir::Files);
+    expect_int("migration creates one sidecar backup", 1, backups.size());
+    if (backups.size() == 1) {
+        const QString backup_path = migrated_database.absoluteDir().filePath(backups.front());
+        expect_int("migration backup keeps old schema", 1,
+                   sqlite_scalar_int(backup_path, QStringLiteral("PRAGMA user_version")));
+        expect_int("migration backup keeps old row", 1,
+                   sqlite_scalar_int(backup_path, QStringLiteral("SELECT count(*) FROM notes")));
+    }
+    if (loaded.count != 1) {
+        return;
+    }
+    expect_true("migrated series assigned", loaded.items[0].series_id[0] != L'\0');
+    const std::wstring migrated_series = loaded.items[0].series_id;
+
+    NoteStore loaded_again;
+    note_store_init(&loaded_again);
+    expect_int("migrated schema reloads", 1, note_store_load_sqlite(&loaded_again, wide_path.c_str()));
+    expect_int("migrated series row still present", 1, loaded_again.count);
+    if (loaded_again.count == 1) {
+        expect_wstr("migrated series remains stable", migrated_series.c_str(),
+                    loaded_again.items[0].series_id);
+    }
+}
+
+static void test_failed_snapshot_save_rolls_back_delete_and_reports_error(void) {
+    QTemporaryDir directory;
+    expect_true("rollback temporary directory", directory.isValid());
+    if (!directory.isValid()) {
+        return;
+    }
+    const QString path = directory.filePath(QStringLiteral("rollback.sqlite"));
+    const std::wstring wide_path = path.toStdWString();
+
+    NoteStore original;
+    note_store_init(&original);
+    note_store_add(&original, NOTE_STAGE_DAY, L"2026-07-12", L"must survive");
+    expect_int("rollback fixture saved", 1, note_store_save_sqlite(&original, wide_path.c_str()));
+    expect_true("delete failure trigger created", execute_sql(path, {
+        QStringLiteral("CREATE TRIGGER prevent_note_delete BEFORE DELETE ON notes "
+                       "BEGIN SELECT RAISE(ABORT, 'blocked delete'); END")
+    }));
+    expect_int("same-id update mutates without clearing table", 1,
+               note_store_update_text(&original, original.items[0].id, L"updated in place"));
+    expect_int("upsert succeeds while delete is blocked", 1,
+               note_store_save_sqlite(&original, wide_path.c_str()));
+
+    NoteStore replacement;
+    note_store_init(&replacement);
+    NoteEvent *replacement_event = note_store_add(
+        &replacement, NOTE_STAGE_DAY, L"2026-07-12", L"replacement");
+    replacement_event->id = 2;
+    replacement.next_id = 3;
+    expect_int("snapshot failure reported", 0, note_store_save_sqlite(&replacement, wide_path.c_str()));
+    expect_last_error("snapshot failure has diagnostic");
+
+    NoteStore recovered;
+    note_store_init(&recovered);
+    expect_int("old snapshot remains loadable", 1, note_store_load_sqlite(&recovered, wide_path.c_str()));
+    expect_int("old snapshot row remains", 1, recovered.count);
+    if (recovered.count == 1) {
+        expect_wstr("last committed snapshot remains", L"updated in place", recovered.items[0].text);
+    }
+}
+
+static void test_failed_load_preserves_existing_memory_and_connections_are_removed(void) {
+    QTemporaryDir directory;
+    expect_true("failed load temporary directory", directory.isValid());
+    if (!directory.isValid()) {
+        return;
+    }
+    const QString invalid_path = directory.filePath(QStringLiteral("invalid.sqlite"));
+    expect_true("invalid schema fixture created", execute_sql(invalid_path, {
+        QStringLiteral("CREATE TABLE notes (id INTEGER PRIMARY KEY)"),
+        QStringLiteral("PRAGMA user_version=1")
+    }));
+
+    NoteStore store;
+    note_store_init(&store);
+    note_store_add(&store, NOTE_STAGE_DAY, L"2026-07-12", L"keep in memory");
+    const std::wstring invalid_wide_path = invalid_path.toStdWString();
+    expect_int("invalid load rejected", 0, note_store_load_sqlite(&store, invalid_wide_path.c_str()));
+    expect_int("invalid load preserves count", 1, store.count);
+    expect_wstr("invalid load preserves content", L"keep in memory", store.items[0].text);
+    expect_last_error("invalid load has diagnostic");
+
+    const int connections_before = QSqlDatabase::connectionNames().size();
+    const std::wstring valid_path = directory.filePath(QStringLiteral("valid.sqlite")).toStdWString();
+    expect_int("connection cleanup save", 1, note_store_save_sqlite(&store, valid_path.c_str()));
+    NoteStore reloaded;
+    note_store_init(&reloaded);
+    expect_int("connection cleanup load", 1, note_store_load_sqlite(&reloaded, valid_path.c_str()));
+    expect_int("store connections removed", connections_before, QSqlDatabase::connectionNames().size());
+}
+
+int main(int argc, char **argv) {
+    QCoreApplication application(argc, argv);
+    printf("RUN baseline store tests\n");
+    fflush(stdout);
     test_add_filter_and_toggle();
     test_save_and_load_roundtrip();
     test_update_text_preserves_event_identity();
@@ -223,6 +494,21 @@ int main(void) {
     test_toggle_all_completes_then_uncompletes();
     test_restore_deleted_event_preserves_identity();
     test_store_grows_beyond_legacy_stack_limit();
+    printf("RUN text limit\n");
+    fflush(stdout);
+    test_text_limit_rejects_overflow_without_mutating_store();
+    printf("RUN persistence roundtrip\n");
+    fflush(stdout);
+    test_long_text_and_series_roundtrip_across_persistence_formats();
+    printf("RUN sqlite migration\n");
+    fflush(stdout);
+    test_legacy_sqlite_migrates_to_schema_v2_with_stable_series();
+    printf("RUN sqlite rollback\n");
+    fflush(stdout);
+    test_failed_snapshot_save_rolls_back_delete_and_reports_error();
+    printf("RUN load isolation and cleanup\n");
+    fflush(stdout);
+    test_failed_load_preserves_existing_memory_and_connections_are_removed();
 
     if (failures != 0) {
         printf("%d note_store test(s) failed\n", failures);

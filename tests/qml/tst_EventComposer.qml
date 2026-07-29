@@ -18,4 +18,12 @@ TestCase {
         composer.forceComposerFocus()
         tryCompare(composer, "inputActiveFocus", true)
     }
+
+    function test_inputSupportsKeyboardAndProductionTextLimit() {
+        const input = findChild(composer, "composerInput")
+        verify(input !== null)
+        verify(input.activeFocusOnTab)
+        compare(input.maximumLength, 65536)
+        verify(input.height >= 40)
+    }
 }

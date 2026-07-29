@@ -87,4 +87,36 @@ TestCase {
 
         compare(panel.emptyStateVisible(), false)
     }
+
+    function test_searchEmptyStateExplainsNoResults() {
+        panel.hasVisibleRows = false
+        panel.overlayOpen = false
+        panel.searchActive = true
+        panel.searchQuery = "发布说明"
+
+        const emptyState = findChild(panel, "noteListEmptyState")
+        verify(panel.emptyStateVisible())
+        verify(emptyState.text.indexOf("没有找到") >= 0)
+        verify(emptyState.text.indexOf("发布说明") >= 0)
+        compare(emptyState.Accessible.name, "没有搜索结果")
+    }
+
+    function test_listAndRowActionsMeetKeyboardTargetBaseline() {
+        const list = findChild(panel, "noteListView")
+        const completeButton = findChild(panel, "completeNoteButton")
+        const deleteButton = findChild(panel, "deleteNoteButton")
+        const viewButton = findChild(panel, "viewNoteButton")
+
+        verify(list !== null)
+        verify(list.activeFocusOnTab)
+        verify(completeButton !== null)
+        verify(deleteButton !== null)
+        verify(viewButton !== null)
+        verify(completeButton.implicitHeight >= 40)
+        verify(deleteButton.implicitHeight >= 40)
+        verify(viewButton.implicitHeight >= 40)
+        verify(completeButton.activeFocusOnTab)
+        verify(deleteButton.activeFocusOnTab)
+        verify(viewButton.activeFocusOnTab)
+    }
 }

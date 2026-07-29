@@ -13,6 +13,18 @@ TestCase {
         property int completedTasks: 0
         property int totalTasks: 0
         property int nextId: 10
+        property string lastError: ""
+        property int selectedNodeId: -1
+        property string selectedNodeTitle: ""
+        property string selectedNodeKind: ""
+        property string selectedNodeDescription: ""
+        property var selectedAncestorPath: []
+        property int selectedNodeChildCount: -1
+        property bool selectedNodeCompleted: false
+
+        signal selectionChanged()
+        signal treeChanged()
+        signal persistenceError(string message)
 
         function indexOfNode(nodeId) {
             for (let i = 0; i < count; ++i) {
@@ -41,6 +53,52 @@ TestCase {
             setProperty(parentIndex, "totalTasks", total)
             setProperty(parentIndex, "completedTasks", done)
             setProperty(parentIndex, "completed", total > 0 && done === total)
+        }
+
+        function syncSelection() {
+            const index = indexOfNode(selectedNodeId)
+            if (index < 0) {
+                selectedNodeId = -1
+                selectedNodeTitle = ""
+                selectedNodeKind = ""
+                selectedNodeDescription = ""
+                selectedAncestorPath = []
+                selectedNodeChildCount = -1
+                selectedNodeCompleted = false
+                selectionChanged()
+                return
+            }
+            const node = get(index)
+            selectedNodeTitle = node.title
+            selectedNodeKind = node.kind
+            selectedNodeDescription = node.description
+            selectedNodeChildCount = node.childCount
+            selectedNodeCompleted = node.completed
+            const ancestors = []
+            let parentId = node.parentId
+            while (parentId > 0) {
+                const parentIndex = indexOfNode(parentId)
+                if (parentIndex < 0)
+                    break
+                const parent = get(parentIndex)
+                ancestors.unshift(parent.title)
+                parentId = parent.parentId
+            }
+            selectedAncestorPath = ancestors
+            selectionChanged()
+        }
+
+        function selectNode(nodeId) {
+            if (nodeId === -1) {
+                selectedNodeId = -1
+                syncSelection()
+                return true
+            }
+            if (indexOfNode(nodeId) < 0)
+                return false
+            selectedNodeId = nodeId
+            syncSelection()
+            return true
         }
 
         function addProject(title) {
@@ -88,20 +146,33 @@ TestCase {
 
         function updateTitle(nodeId, title) {
             const index = indexOfNode(nodeId)
-            if (index >= 0)
-                setProperty(index, "title", title)
+            if (index < 0)
+                return false
+            setProperty(index, "title", title)
+            treeChanged()
+            if (selectedNodeId === nodeId)
+                syncSelection()
+            return true
         }
 
         function updateDescription(nodeId, description) {
             const index = indexOfNode(nodeId)
-            if (index >= 0)
-                setProperty(index, "description", description)
+            if (index < 0)
+                return false
+            setProperty(index, "description", description)
+            treeChanged()
+            if (selectedNodeId === nodeId)
+                syncSelection()
+            return true
         }
 
         function toggleExpanded(nodeId) {
             const index = indexOfNode(nodeId)
-            if (index >= 0)
-                setProperty(index, "expanded", !get(index).expanded)
+            if (index < 0)
+                return false
+            setProperty(index, "expanded", !get(index).expanded)
+            treeChanged()
+            return true
         }
 
         function toggleComplete(nodeId) {
@@ -113,6 +184,9 @@ TestCase {
             setProperty(index, "completedTasks", completed ? 1 : 0)
             completedTasks += completed ? 1 : -1
             updateParentStats(get(index).parentId)
+            treeChanged()
+            if (selectedNodeId === nodeId)
+                syncSelection()
             return true
         }
 
@@ -129,6 +203,10 @@ TestCase {
                     remove(i)
                 }
             }
+            if (selectedNodeId === nodeId)
+                selectNode(-1)
+            treeChanged()
+            return true
         }
     }
 
@@ -151,6 +229,14 @@ TestCase {
         projectModel.completedTasks = 0
         projectModel.totalTasks = 0
         projectModel.nextId = 10
+        projectModel.lastError = ""
+        projectModel.selectedNodeId = -1
+        projectModel.selectedNodeTitle = ""
+        projectModel.selectedNodeKind = ""
+        projectModel.selectedNodeDescription = ""
+        projectModel.selectedAncestorPath = []
+        projectModel.selectedNodeChildCount = -1
+        projectModel.selectedNodeCompleted = false
         panel.clearSelection()
         panel.noticeText = ""
         panel.activeCheckNodeId = 0
@@ -170,7 +256,7 @@ TestCase {
     }
 
     function test_treeUsesReadableChineseAndLeftDoesNotInlineEdit() {
-        compare(findChild(panel, "projectCreateRootButton").text, "+ 项目")
+        compare(findChild(panel, "projectCreateRootButton").text, "新建项目")
         compare(findChild(panel, "projectInspectorTitleEditor").placeholderText, "选择左侧项目或任务")
 
         const projectId = panel.createRootProject()
@@ -189,8 +275,8 @@ TestCase {
         const deleteButton = findChild(panel, "projectTreeDeleteButton")
         verify(addButton !== null)
         verify(deleteButton !== null)
-        compare(addButton.text, "+")
-        compare(deleteButton.text, "-")
+        verify(addButton.iconSource.toString().indexOf("plus.svg") >= 0)
+        verify(deleteButton.iconSource.toString().indexOf("trash.svg") >= 0)
         compare(addButton.width, deleteButton.width)
         compare(addButton.height, deleteButton.height)
     }
@@ -218,15 +304,14 @@ TestCase {
 
         const parentTask = createChild("父任务")
         createChild("子任务")
-        panel.setSelection(parentTask, "父任务", "task", 1, 1, 0, false, 1, "")
+        projectModel.selectNode(parentTask)
         wait(0)
         compare(panel.canToggleSelectedComplete, false)
 
         const leafId = projectModel.addChild(projectModel.get(0).nodeId, "叶子任务")
-        panel.setSelection(leafId, "叶子任务", "task", 0, 1, 0, false, 1, "")
+        projectModel.selectNode(leafId)
         wait(0)
         compare(panel.selectedKind, "task")
-        compare(panel.selectedChildCount, 0)
         compare(panel.canToggleSelectedComplete, true)
 
         panel.toggleSelectedComplete()
@@ -257,12 +342,12 @@ TestCase {
         panel.markCheckPressed(firstTask)
         compare(panel.activeCheckNodeId, firstTask)
 
-        panel.setSelection(secondTask, "发布说明", "task", 0, 1, 0, false, 2, "")
+        projectModel.selectNode(secondTask)
         compare(panel.selectedNodeId, secondTask)
-        compare(panel.activeCheckNodeId, 0)
+        compare(panel.activeCheckNodeId, -1)
 
         panel.clearTransientPressState()
-        compare(panel.activeCheckNodeId, 0)
+        compare(panel.activeCheckNodeId, -1)
     }
 
     function test_summaryContextIncludesDescriptionAndNoSelectionUsesTreeOverview() {

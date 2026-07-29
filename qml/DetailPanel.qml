@@ -25,10 +25,14 @@ ColumnLayout {
     signal saveRequested(string text)
     signal repeatRequested(string repeat)
 
-    spacing: 12
+    spacing: root.tokens.space3
 
     function releaseInputFocus() {
         detailEditor.focus = false
+    }
+
+    function focusInitial() {
+        detailEditor.forceActiveFocus(Qt.TabFocusReason)
     }
 
     onEventTextChanged: {
@@ -39,7 +43,7 @@ ColumnLayout {
     Text {
         text: root.readOnly ? "收纳详情" : "便签详情"
         color: root.tokens.ink
-        font.pixelSize: root.tokens.sizeTitle + 7
+        font.pixelSize: root.tokens.sizeDisplay
         font.weight: Font.Bold
         font.family: root.tokens.fontUi
         renderType: Text.NativeRendering
@@ -49,7 +53,7 @@ ColumnLayout {
         Layout.fillWidth: true
         text: root.eventMeta
         color: root.tokens.muted
-        font.pixelSize: root.tokens.sizeBody + 1
+        font.pixelSize: root.tokens.sizeMeta
         font.family: root.tokens.fontUi
         wrapMode: Text.WordWrap
         renderType: Text.NativeRendering
@@ -59,28 +63,36 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         radius: root.tokens.radiusLg
-        color: detailEditor.activeFocus ? "#f8fff7" : "#99ffffff"
-        border.width: 1
-        border.color: detailEditor.activeFocus ? root.tokens.accentMint : "#00ffffff"
+        color: detailEditor.activeFocus ? root.tokens.surfaceHover : root.tokens.surface
+        border.width: detailEditor.activeFocus ? 2 : 1
+        border.color: detailEditor.activeFocus ? root.tokens.focusRing : root.tokens.border
 
         Behavior on color { ColorAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
         Behavior on border.color { ColorAnimation { duration: root.tokens.motionMedium; easing.type: Easing.OutCubic } }
 
         TextArea {
             id: detailEditor
+            objectName: "detailEditor"
             anchors.fill: parent
             anchors.margins: 14
             text: root.eventText
             readOnly: root.readOnly
             wrapMode: TextEdit.WrapAnywhere
             selectByMouse: true
-            font.pixelSize: root.tokens.sizeBody + 2
+            font.pixelSize: root.tokens.sizeBody
             font.family: root.tokens.fontUi
-            color: root.readOnly ? "#46566f" : "#172033"
+            color: root.readOnly ? root.tokens.textSecondary : root.tokens.ink
             selectedTextColor: root.tokens.ink
-            selectionColor: root.tokens.accentYellowSoft
+            selectionColor: root.tokens.accentSoft
+            activeFocusOnTab: true
             renderType: Text.NativeRendering
             background: Item {}
+
+            Accessible.role: Accessible.EditableText
+            Accessible.name: root.readOnly ? "便签详情" : "编辑便签详情"
+            Accessible.description: root.readOnly
+                                    ? "只读便签内容"
+                                    : "编辑便签内容，按 Ctrl+Enter 保存"
 
             Keys.onPressed: function(event) {
                 if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) &&
@@ -97,7 +109,7 @@ ColumnLayout {
         visible: !root.readOnly
         text: "可直接编辑，按 Ctrl+Enter 保存。"
         color: root.tokens.mutedSoft
-        font.pixelSize: root.tokens.sizeBody
+        font.pixelSize: root.tokens.sizeMeta
         font.family: root.tokens.fontUi
         renderType: Text.NativeRendering
     }
@@ -122,6 +134,7 @@ ColumnLayout {
             theme: root.tokens
             uiFontFamily: root.uiFontFamily
             uiFontSize: root.uiFontSize
+            accessibleDescription: "关闭重复计划"
             onClicked: root.repeatRequested("")
         }
 
@@ -132,6 +145,7 @@ ColumnLayout {
             theme: root.tokens
             uiFontFamily: root.uiFontFamily
             uiFontSize: root.uiFontSize
+            accessibleDescription: "设置为每天重复"
             onClicked: root.repeatRequested("daily")
         }
 
@@ -142,6 +156,7 @@ ColumnLayout {
             theme: root.tokens
             uiFontFamily: root.uiFontFamily
             uiFontSize: root.uiFontSize
+            accessibleDescription: "设置为每周重复"
             onClicked: root.repeatRequested("weekly")
         }
 
@@ -152,6 +167,7 @@ ColumnLayout {
             theme: root.tokens
             uiFontFamily: root.uiFontFamily
             uiFontSize: root.uiFontSize
+            accessibleDescription: "设置为每月重复"
             onClicked: root.repeatRequested("monthly")
         }
 
@@ -162,24 +178,31 @@ ColumnLayout {
             theme: root.tokens
             uiFontFamily: root.uiFontFamily
             uiFontSize: root.uiFontSize
+            accessibleDescription: "设置为每年重复"
             onClicked: root.repeatRequested("yearly")
         }
     }
 
     Button {
         id: saveButton
+        objectName: "detailSaveButton"
         visible: !root.readOnly
         Layout.fillWidth: true
-        Layout.preferredHeight: 42
+        Layout.preferredHeight: root.tokens.primaryControlHeight
         hoverEnabled: true
+        activeFocusOnTab: true
         onClicked: root.saveRequested(detailEditor.text)
+
+        Accessible.role: Accessible.Button
+        Accessible.name: "保存详情"
+        Accessible.description: "保存当前便签内容"
 
         contentItem: Text {
             text: "保存详情"
-            color: "#ffffff"
+            color: root.tokens.textOnAccent
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            font.pixelSize: root.tokens.sizeBody + 2
+            font.pixelSize: root.tokens.sizeBody
             font.weight: Font.Bold
             font.family: root.tokens.fontUi
             renderType: Text.NativeRendering
@@ -187,7 +210,10 @@ ColumnLayout {
 
         background: Rectangle {
             radius: root.tokens.radiusMd
-            color: saveButton.pressed ? "#1f56aa" : saveButton.hovered ? "#245db6" : root.tokens.accentBlue
+            color: saveButton.pressed ? root.tokens.accentPressed
+                 : saveButton.hovered ? root.tokens.accentHover : root.tokens.accent
+            border.width: saveButton.visualFocus ? 2 : 0
+            border.color: root.tokens.focusRing
             Behavior on color { ColorAnimation { duration: root.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
 

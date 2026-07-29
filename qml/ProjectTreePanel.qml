@@ -6,6 +6,7 @@ import QtQuick.Layouts
 
 Item {
     id: panel
+    objectName: "projectTreePanel"
 
     readonly property ChronoTokens fallbackTokens: ChronoTokens {
         fontUi: panel.uiFontFamily
@@ -13,265 +14,326 @@ Item {
     }
     readonly property var tokens: panel.theme ? panel.theme : panel.fallbackTokens
 
-    property var model
+    property var model: null
     property var theme: null
     property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
-    property int uiFontSize: theme ? theme.baseFontSize : 12
-    property int selectedNodeId: 0
-    property color inkColor: panel.tokens.ink
-    property color mutedColor: panel.tokens.muted
-    property color accentColor: panel.tokens.accentMint
+    property int uiFontSize: theme ? theme.baseFontSize : 14
+    property color inkColor: tokens.ink
+    property color mutedColor: tokens.textSecondary
+    property color accentColor: tokens.projectAccent
     property string noticeText: ""
-    property string selectedTitle: ""
-    property string selectedKind: ""
-    property string selectedPath: ""
-    property string selectedDescription: ""
-    property bool selectedCompleted: false
-    property string selectedProgressText: ""
-    property int selectedChildCount: 0
-    property int selectedTotalTasks: 0
-    property int selectedCompletedTasks: 0
-    property int editingNodeId: 0
-    property int pendingCreatedNodeId: 0
-    property int activeCheckNodeId: 0
-    property string aiContextText: ""
-    property bool aiSummaryAvailable: false
-    readonly property bool canToggleSelectedComplete: selectedNodeId > 0 && selectedKind === "task" && selectedChildCount === 0
-    readonly property int treeColumnWidth: Math.min(280, Math.max(240, Math.round(width * 0.32)))
-    readonly property int treeRowHeight: 42
-    readonly property int taskCompleteControlSize: 20
+    property int activeCheckNodeId: -1
+    property int pendingCreatedNodeId: -1
+    readonly property int editingNodeId: 0
+
+    readonly property int selectedNodeId: model ? model.selectedNodeId : -1
+    readonly property string selectedTitle: model ? model.selectedNodeTitle : ""
+    readonly property string selectedKind: model ? model.selectedNodeKind : ""
+    readonly property string selectedDescription: model ? model.selectedNodeDescription : ""
+    readonly property var selectedAncestorPath: model ? model.selectedAncestorPath : []
+    readonly property int selectedChildCount: model && model.selectedNodeChildCount !== undefined
+                                              ? model.selectedNodeChildCount : -1
+    readonly property bool selectedCompleted: model && model.selectedNodeCompleted !== undefined
+                                               ? model.selectedNodeCompleted : false
+    readonly property string selectedPath: selectedNodeId > 0
+                                           ? selectedAncestorPath.concat([selectedTitle]).join(" / ")
+                                           : ""
+    readonly property bool canToggleSelectedComplete: selectedNodeId > 0 &&
+                                                       selectedKind === "task" &&
+                                                       selectedChildCount === 0
+    readonly property string selectedProgressText: selectedKind === "project"
+                                                   ? "全树任务 " + safeCompletedTasks() + "/" + safeTotalTasks()
+                                                   : selectedKind === "task"
+                                                     ? "由任务自身状态控制"
+                                                     : "未选择节点"
+    readonly property bool aiSummaryAvailable: model ? model.projectCount > 0 : false
+    readonly property string aiContextText: {
+        if (!aiSummaryAvailable)
+            return ""
+        if (selectedNodeId <= 0) {
+            return "项目摘要上下文\n范围：整个项目树"
+                    + "\n项目数：" + model.projectCount
+                    + "\n任务进度：" + safeCompletedTasks() + "/" + safeTotalTasks()
+        }
+        return "项目摘要上下文"
+                + "\n标题：" + selectedTitle
+                + "\n类型：" + (selectedKind === "project" ? "项目" : "任务")
+                + "\n路径：" + selectedPath
+                + "\n具体内容：" + selectedDescription
+                + "\n全树任务进度：" + safeCompletedTasks() + "/" + safeTotalTasks()
+    }
 
     signal noticeRequested(string message)
 
-    function indentForDepth(depth) {
-        const normal = Math.min(depth, 8) * 14
-        const compressed = Math.max(depth - 8, 0) * 4
-        return normal + compressed
+    function safeTotalTasks() {
+        return model && model.totalTasks !== undefined ? model.totalTasks : 0
+    }
+
+    function safeCompletedTasks() {
+        return model && model.completedTasks !== undefined ? model.completedTasks : 0
+    }
+
+    function syncEditors() {
+        if (titleEditor.text !== selectedTitle)
+            titleEditor.text = selectedTitle
+        if (descriptionEditor.text !== selectedDescription)
+            descriptionEditor.text = selectedDescription
     }
 
     function clearTransientPressState() {
-        activeCheckNodeId = 0
+        activeCheckNodeId = -1
     }
 
     function markCheckPressed(nodeId) {
         activeCheckNodeId = nodeId
     }
 
-    function progressText(kind, childCount, completedTasks, totalTasks, completed) {
-        if (kind === "project")
-            return "进度 " + completedTasks + "/" + totalTasks + " · 子项 " + childCount
-        if (childCount > 0)
-            return "子项汇总 " + completedTasks + "/" + totalTasks + " · 子项 " + childCount
-        return completed ? "任务已完成" : "任务未完成"
-    }
-
     function clearSelection() {
-        selectedNodeId = 0
-        selectedTitle = ""
-        selectedKind = ""
-        selectedPath = ""
-        selectedDescription = ""
-        selectedCompleted = false
-        selectedProgressText = ""
-        selectedChildCount = 0
-        selectedTotalTasks = 0
-        selectedCompletedTasks = 0
-        editingNodeId = 0
-        pendingCreatedNodeId = 0
         clearTransientPressState()
-        refreshAiContext()
+        pendingCreatedNodeId = -1
+        if (model && typeof model.selectNode === "function")
+            model.selectNode(-1)
+        Qt.callLater(syncEditors)
     }
 
-    function setSelection(nodeId, title, kind, childCount, totalTasks, completedTasks, completed, depth, description) {
+    function selectNode(nodeId) {
         clearTransientPressState()
-        selectedNodeId = nodeId
-        selectedTitle = title
-        selectedKind = kind
-        selectedChildCount = childCount
-        selectedTotalTasks = totalTasks
-        selectedCompletedTasks = completedTasks
-        selectedCompleted = completed
-        selectedDescription = description || ""
-        selectedPath = "根项目 / " + title
-        selectedProgressText = progressText(kind, childCount, completedTasks, totalTasks, completed)
-        noticeText = ""
-        if (descriptionEditor)
-            descriptionEditor.text = selectedDescription
-        refreshAiContext()
-    }
-
-    function selectCreated(nodeId, title, kind) {
-        setSelection(nodeId, title, kind, 0, kind === "task" ? 1 : 0, 0, false, kind === "task" ? 1 : 0, "")
-        pendingCreatedNodeId = nodeId
-    }
-
-    function commitInspectorTitle(title) {
-        if (selectedNodeId <= 0)
-            return
-        const trimmed = title.trim()
-        if (trimmed.length === 0) {
-            if (pendingCreatedNodeId === selectedNodeId) {
-                model.removeNode(selectedNodeId)
-                clearSelection()
-            }
-            noticeText = "名称不能为空"
-            noticeRequested("名称不能为空")
-            return
+        if (!model || typeof model.selectNode !== "function" || !model.selectNode(nodeId)) {
+            noticeRequested(model && model.lastError ? model.lastError : "无法选择该项目节点")
+            return false
         }
-        model.updateTitle(selectedNodeId, trimmed)
-        selectedTitle = trimmed
-        selectedPath = "根项目 / " + trimmed
-        pendingCreatedNodeId = 0
-        noticeText = ""
-        refreshAiContext()
-    }
-
-    function commitDescription(description) {
-        if (selectedNodeId <= 0)
-            return
-        model.updateDescription(selectedNodeId, description)
-        selectedDescription = description
-        refreshAiContext()
+        Qt.callLater(syncEditors)
+        return true
     }
 
     function createRootProject() {
-        clearTransientPressState()
-        const id = model.addProject("未命名项目")
-        if (id > 0)
-            selectCreated(id, "未命名项目", "project")
+        if (!model)
+            return -1
+        const id = model.addProject("新项目")
+        if (id <= 0) {
+            noticeRequested(model.lastError || "无法创建项目")
+            return -1
+        }
+        pendingCreatedNodeId = id
+        selectNode(id)
+        Qt.callLater(function() {
+            syncEditors()
+            titleEditor.selectAll()
+            titleEditor.forceActiveFocus(Qt.TabFocusReason)
+        })
         return id
     }
 
     function createChildForSelected() {
-        clearTransientPressState()
-        if (selectedNodeId <= 0) {
-            noticeText = "先选择一个项目或任务"
-            noticeRequested("先选择一个项目或任务，再添加子项。")
-            return 0
+        if (!model || selectedNodeId <= 0) {
+            noticeRequested("请先选择一个项目或任务")
+            return -1
         }
         const id = model.addChild(selectedNodeId, "新子项")
-        if (id > 0)
-            selectCreated(id, "新子项", "task")
+        if (id <= 0) {
+            noticeRequested(model.lastError || "无法创建子项")
+            return -1
+        }
+        pendingCreatedNodeId = id
+        selectNode(id)
+        Qt.callLater(function() {
+            syncEditors()
+            titleEditor.selectAll()
+            titleEditor.forceActiveFocus(Qt.TabFocusReason)
+        })
         return id
     }
 
-    function removeNodeFromTree(nodeId) {
-        if (nodeId <= 0)
-            return
-        model.removeNode(nodeId)
-        if (selectedNodeId === nodeId)
-            clearSelection()
+    function commitInspectorTitle(value) {
+        if (!model || selectedNodeId <= 0)
+            return false
+        const trimmed = value.trim()
+        if (trimmed.length === 0) {
+            if (pendingCreatedNodeId === selectedNodeId) {
+                model.removeNode(selectedNodeId)
+                pendingCreatedNodeId = -1
+                noticeRequested("已取消创建空白节点")
+            } else {
+                noticeRequested("标题不能为空")
+                syncEditors()
+            }
+            return false
+        }
+        if (trimmed === selectedTitle) {
+            pendingCreatedNodeId = -1
+            return true
+        }
+        if (!model.updateTitle(selectedNodeId, trimmed)) {
+            noticeRequested(model.lastError || "标题保存失败")
+            syncEditors()
+            return false
+        }
+        pendingCreatedNodeId = -1
+        Qt.callLater(syncEditors)
+        return true
+    }
+
+    function commitDescription(value) {
+        if (!model || selectedNodeId <= 0)
+            return false
+        if (value === selectedDescription)
+            return true
+        if (!model.updateDescription(selectedNodeId, value)) {
+            noticeRequested(model.lastError || "内容保存失败")
+            syncEditors()
+            return false
+        }
+        Qt.callLater(syncEditors)
+        return true
+    }
+
+    function removeSelected() {
+        if (!model || selectedNodeId <= 0)
+            return false
+        if (!model.removeNode(selectedNodeId)) {
+            noticeRequested(model.lastError || "删除失败")
+            return false
+        }
+        pendingCreatedNodeId = -1
+        Qt.callLater(syncEditors)
+        return true
     }
 
     function toggleSelectedComplete() {
-        if (selectedNodeId <= 0 || selectedKind !== "task" || selectedChildCount > 0)
-            return
-        if (!model.toggleComplete(selectedNodeId))
-            return
-        selectedCompleted = !selectedCompleted
-        selectedCompletedTasks = selectedCompleted ? 1 : 0
-        selectedProgressText = progressText(selectedKind, selectedChildCount, selectedCompletedTasks, selectedTotalTasks, selectedCompleted)
+        if (!model || !canToggleSelectedComplete)
+            return false
+        if (!model.toggleComplete(selectedNodeId)) {
+            noticeRequested(model.lastError || "只有不含子项的任务可以标记完成")
+            return false
+        }
         clearTransientPressState()
-        refreshAiContext()
+        return true
     }
 
     function refreshAiContext() {
-        if (!model || model.projectCount <= 0) {
-            aiSummaryAvailable = false
-            aiContextText = ""
-            return
+        // Compatibility no-op: aiContextText is now derived from the model.
+    }
+
+    component TreeIconButton: Button {
+        id: iconButton
+        required property url iconSource
+        required property string accessibleName
+        property string accessibleDescription: accessibleName
+        property bool danger: false
+
+        implicitWidth: panel.tokens.controlHeight
+        implicitHeight: panel.tokens.controlHeight
+        hoverEnabled: true
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: accessibleName
+        Accessible.description: accessibleDescription
+
+        contentItem: Image {
+            source: iconButton.iconSource
+            sourceSize.width: 40
+            sourceSize.height: 40
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            mipmap: true
         }
-        aiSummaryAvailable = true
-        if (selectedNodeId <= 0) {
-            aiContextText = "项目摘要上下文\n范围：整个项目树\n项目数：" + model.projectCount
-                    + "\n任务：" + model.completedTasks + "/" + model.totalTasks
-            return
+
+        background: Rectangle {
+            radius: panel.tokens.radiusSm
+            color: iconButton.pressed ? panel.tokens.surfacePressed
+                 : iconButton.hovered
+                   ? (iconButton.danger ? panel.tokens.dangerSoft : panel.tokens.surfaceHover)
+                   : panel.tokens.transparent
+            border.width: iconButton.visualFocus ? 2 : 1
+            border.color: iconButton.visualFocus ? panel.tokens.focusRing
+                          : iconButton.danger ? panel.tokens.danger
+                                              : panel.tokens.borderSubtle
+            Behavior on color {
+                ColorAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic }
+            }
         }
-        aiContextText = "项目摘要上下文\n标题：" + selectedTitle
-                + "\n类型：" + (selectedKind === "project" ? "项目" : "任务")
-                + "\n路径：" + selectedPath
-                + "\n进度：" + selectedCompletedTasks + "/" + selectedTotalTasks
-                + "\n直接子项：" + selectedChildCount
-                + "\n具体内容：" + selectedDescription
-                + "\n状态：" + (selectedKind === "task" ? (selectedCompleted ? "已完成" : "未完成") : "项目汇总")
     }
 
-    Rectangle {
+    ColumnLayout {
         anchors.fill: parent
-        radius: panel.tokens.radiusLg
-        color: "#10ffffff"
-        border.width: 1
-        border.color: panel.tokens.lineSoft
-        antialiasing: true
-    }
-
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        onClicked: panel.clearTransientPressState()
-    }
-
-    RowLayout {
-        anchors.fill: parent
-        anchors.margins: panel.tokens.space2
         spacing: panel.tokens.space3
 
-        Rectangle {
-            objectName: "projectTreePane"
-            Layout.preferredWidth: panel.treeColumnWidth
-            Layout.fillHeight: true
-            radius: panel.tokens.radiusMd
-            color: "#34fffef7"
-            border.width: 1
-            border.color: "#1688c57f"
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: panel.tokens.space2
 
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: panel.tokens.space2
-                spacing: panel.tokens.space2
+                Layout.fillWidth: true
+                spacing: panel.tokens.space1
 
-                RowLayout {
-                    objectName: "projectTreeToolbar"
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-                    spacing: panel.tokens.space2
-
-                    ToolPill {
-                        objectName: "projectCreateRootButton"
-                        text: "+ 项目"
-                        widthHint: 68
-                        primary: true
-                        theme: panel.tokens
-                        uiFontFamily: panel.uiFontFamily
-                        uiFontSize: panel.uiFontSize
-                        onClicked: panel.createRootProject()
-                    }
-
-                    Text {
-                        objectName: "projectCountText"
-                        Layout.fillWidth: true
-                        text: "项目 " + panel.model.projectCount + " · 任务 " + panel.model.completedTasks + "/" + panel.model.totalTasks
-                        color: panel.mutedColor
-                        font.pixelSize: panel.tokens.sizeBody
-                        font.family: panel.tokens.fontUi
-                        elide: Text.ElideRight
-                        renderType: Text.NativeRendering
-                    }
+                Text {
+                    text: "项目"
+                    color: panel.inkColor
+                    font.family: panel.tokens.fontUi
+                    font.pixelSize: panel.tokens.sizeDisplay
+                    font.weight: Font.Bold
+                    renderType: Text.NativeRendering
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: "项目工作区"
                 }
 
+                Text {
+                    text: panel.model
+                          ? "项目 " + panel.model.projectCount + " · 任务 "
+                            + panel.safeCompletedTasks() + "/" + panel.safeTotalTasks()
+                          : "项目数据暂不可用"
+                    color: panel.mutedColor
+                    font.family: panel.tokens.fontUi
+                    font.pixelSize: panel.tokens.sizeBody
+                    renderType: Text.NativeRendering
+                }
+            }
+
+            ToolPill {
+                id: createProjectButton
+                objectName: "projectCreateRootButton"
+                text: "新建项目"
+                widthHint: 96
+                primary: true
+                projectStyle: true
+                theme: panel.tokens
+                accessibleDescription: "在项目树根节点创建项目"
+                onClicked: panel.createRootProject()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: panel.tokens.space3
+
+            Rectangle {
+                Layout.preferredWidth: Math.max(250, parent.width * 0.42)
+                Layout.fillHeight: true
+                radius: panel.tokens.radiusMd
+                color: panel.tokens.surface
+                border.width: 1
+                border.color: panel.tokens.border
+
                 ListView {
-                    id: treeView
-                    objectName: "projectTreeViewport"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
+                    id: treeList
+                    objectName: "projectTreeList"
+                    anchors.fill: parent
+                    anchors.margins: panel.tokens.space2
                     model: panel.model
+                    clip: true
                     spacing: panel.tokens.space1
-                    boundsBehavior: Flickable.DragAndOvershootBounds
+                    activeFocusOnTab: true
+                    keyNavigationEnabled: true
+                    highlightMoveDuration: panel.tokens.motionFast
+                    ScrollBar.vertical: ScrollBar {}
+                    Accessible.role: Accessible.Tree
+                    Accessible.name: "项目树"
+                    Accessible.description: "使用方向键浏览项目和任务，按回车选择"
 
                     delegate: Rectangle {
-                        id: row
-
+                        id: treeRow
+                        objectName: "projectTreeRow"
                         required property int nodeId
                         required property int parentId
                         required property string title
@@ -284,409 +346,374 @@ Item {
                         required property int totalTasks
                         required property int completedTasks
 
-                        width: treeView.width
-                        height: panel.treeRowHeight
+                        width: treeList.width
+                        height: panel.tokens.controlHeight + panel.tokens.space2
                         radius: panel.tokens.radiusSm
-                        color: panel.selectedNodeId === nodeId ? "#66fffef7" : "#00ffffff"
+                        color: panel.selectedNodeId === nodeId
+                               ? panel.tokens.selectionSurface
+                               : rowMouse.containsMouse
+                                 ? panel.tokens.surfaceHover
+                                 : panel.tokens.transparent
                         border.width: panel.selectedNodeId === nodeId ? 1 : 0
-                        border.color: "#6688c57f"
-                        antialiasing: true
-                        Behavior on color { ColorAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
-                        Behavior on border.color { ColorAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
+                        border.color: panel.tokens.projectAccent
+                        Accessible.role: Accessible.TreeItem
+                        Accessible.name: title
+                        Accessible.description: (kind === "project" ? "项目" : "任务")
+                                                + (completed ? "，已完成" : "，未完成")
+                        Accessible.selected: panel.selectedNodeId === nodeId
 
-                        Rectangle {
-                            width: panel.selectedNodeId === row.nodeId ? 3 : 0
-                            height: parent.height - 12
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            radius: 2
-                            color: panel.accentColor
-                        }
-
-                        Repeater {
-                            model: Math.min(row.depth, 8)
-                            Rectangle {
-                                required property int index
-                                width: 1
-                                height: row.height - 10
-                                x: panel.tokens.space2 + index * 14 + 9
-                                y: 5
-                                color: "#2688c57f"
-                            }
-                        }
+                        Keys.onReturnPressed: panel.selectNode(nodeId)
+                        Keys.onEnterPressed: panel.selectNode(nodeId)
 
                         MouseArea {
+                            id: rowMouse
                             anchors.fill: parent
-                            onClicked: panel.setSelection(row.nodeId, row.title, row.kind, row.childCount, row.totalTasks, row.completedTasks, row.completed, row.depth, row.description)
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: panel.selectNode(treeRow.nodeId)
                         }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: panel.tokens.space2 + panel.indentForDepth(row.depth)
+                            anchors.leftMargin: panel.tokens.space2 + treeRow.depth * panel.tokens.space4
                             anchors.rightMargin: panel.tokens.space1
                             spacing: panel.tokens.space1
 
-                            Item {
-                                Layout.preferredWidth: 20
-                                Layout.preferredHeight: 20
-                                visible: row.childCount > 0
+                            Button {
+                                id: expandButton
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 32
+                                visible: treeRow.childCount > 0
+                                enabled: visible
+                                hoverEnabled: true
+                                activeFocusOnTab: visible
+                                onClicked: panel.model.toggleExpanded(treeRow.nodeId)
+                                Accessible.role: Accessible.Button
+                                Accessible.name: treeRow.expanded ? "折叠" + treeRow.title : "展开" + treeRow.title
+                                Accessible.description: "切换子项可见状态"
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: row.expanded ? "⌄" : "›"
-                                    color: panel.mutedColor
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    font.pixelSize: panel.tokens.sizeTitle
-                                    font.weight: Font.DemiBold
-                                    font.family: panel.tokens.fontUi
-                                    renderType: Text.NativeRendering
+                                contentItem: Image {
+                                    source: treeRow.expanded
+                                            ? "qrc:/assets/icons/chevron-down.svg"
+                                            : "qrc:/assets/icons/chevron-right.svg"
+                                    sourceSize.width: 32
+                                    sourceSize.height: 32
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
                                 }
+                                background: Rectangle {
+                                    radius: panel.tokens.radiusXs
+                                    color: expandButton.hovered ? panel.tokens.projectAccentSoft
+                                                                : panel.tokens.transparent
+                                    border.width: expandButton.visualFocus ? 2 : 0
+                                    border.color: panel.tokens.focusRing
+                                }
+                            }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        panel.clearTransientPressState()
-                                        panel.model.toggleExpanded(row.nodeId)
+                            Item {
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 32
+                                visible: treeRow.childCount === 0
+                            }
+
+                            Image {
+                                Layout.preferredWidth: 18
+                                Layout.preferredHeight: 18
+                                source: treeRow.kind === "project"
+                                        ? "qrc:/assets/icons/folder.svg"
+                                        : "qrc:/assets/icons/task.svg"
+                                sourceSize.width: 36
+                                sourceSize.height: 36
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                Accessible.ignored: true
+                            }
+
+                            Button {
+                                id: completionButton
+                                objectName: "projectTaskCheckButton"
+                                Layout.preferredWidth: 32
+                                Layout.preferredHeight: 32
+                                visible: treeRow.kind === "task" && treeRow.childCount === 0
+                                activeFocusOnTab: visible
+                                hoverEnabled: true
+                                onPressed: panel.markCheckPressed(treeRow.nodeId)
+                                onReleased: panel.clearTransientPressState()
+                                onCanceled: panel.clearTransientPressState()
+                                onClicked: {
+                                    panel.selectNode(treeRow.nodeId)
+                                    panel.toggleSelectedComplete()
+                                }
+                                Accessible.role: Accessible.CheckBox
+                                Accessible.name: treeRow.completed
+                                                 ? "将“" + treeRow.title + "”标为未完成"
+                                                 : "将“" + treeRow.title + "”标为完成"
+                                Accessible.checked: treeRow.completed
+
+                                contentItem: Item {
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 20
+                                        height: 20
+                                        radius: panel.tokens.radiusXs
+                                        color: treeRow.completed ? panel.tokens.projectAccent
+                                                                 : panel.tokens.surface
+                                        border.width: completionButton.visualFocus ? 2 : 1
+                                        border.color: completionButton.visualFocus
+                                                      ? panel.tokens.focusRing
+                                                      : panel.tokens.projectAccent
+
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 16
+                                            height: 16
+                                            visible: treeRow.completed
+                                            source: "qrc:/assets/icons/check.svg"
+                                            sourceSize.width: 32
+                                            sourceSize.height: 32
+                                        }
                                     }
                                 }
+                                background: Item {}
                             }
 
-                            Item {
-                                Layout.preferredWidth: 20
-                                Layout.preferredHeight: 20
-                                visible: row.childCount === 0
-                            }
-
-                            Item {
-                                Layout.preferredWidth: panel.taskCompleteControlSize
-                                Layout.preferredHeight: panel.taskCompleteControlSize
-                                visible: row.kind === "task"
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: 5
-                                    color: row.completed ? panel.accentColor : "#00ffffff"
-                                    border.width: 1
-                                    border.color: panel.activeCheckNodeId === row.nodeId ? panel.tokens.accentBlue
-                                                  : row.completed ? panel.accentColor : "#7790a3a7"
-                                    Behavior on color { ColorAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
-                                    Behavior on border.color { ColorAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: row.completed ? "✓" : ""
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    font.pixelSize: panel.tokens.sizeMeta
-                                    font.weight: Font.Bold
-                                    font.family: panel.tokens.fontUi
-                                    renderType: Text.NativeRendering
-                                }
-
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 20
-                                Layout.preferredHeight: 20
-                                visible: row.kind !== "task"
-                                radius: panel.tokens.radiusXs
-                                color: "#2288c57f"
-                                border.width: 1
-                                border.color: "#4488c57f"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "项"
-                                    color: "#376c3a"
-                                    font.pixelSize: panel.tokens.sizeMeta
-                                    font.weight: Font.Bold
-                                    font.family: panel.tokens.fontUi
-                                    renderType: Text.NativeRendering
-                                }
-                            }
-
-                            ColumnLayout {
+                            Text {
                                 Layout.fillWidth: true
-                                Layout.alignment: Qt.AlignVCenter
-                                spacing: 0
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: row.title
-                                    color: row.completed ? "#6d7d81" : panel.inkColor
-                                    font.pixelSize: panel.tokens.sizeBody
-                                    font.weight: row.kind === "project" ? Font.Bold : Font.DemiBold
-                                    font.family: panel.tokens.fontUi
-                                    elide: Text.ElideRight
-                                    renderType: Text.NativeRendering
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: row.kind === "project"
-                                          ? row.completedTasks + "/" + row.totalTasks
-                                          : (row.childCount > 0 ? row.completedTasks + "/" + row.totalTasks + " · 子项 " + row.childCount : (row.completed ? "完成" : "任务"))
-                                    color: panel.mutedColor
-                                    font.pixelSize: panel.tokens.sizeMeta
-                                    font.family: panel.tokens.fontUi
-                                    elide: Text.ElideRight
-                                    renderType: Text.NativeRendering
-                                }
+                                text: treeRow.title
+                                color: treeRow.completed ? panel.tokens.textDisabled : panel.inkColor
+                                font.family: panel.tokens.fontUi
+                                font.pixelSize: panel.tokens.sizeBody
+                                font.strikeout: treeRow.completed
+                                elide: Text.ElideRight
+                                renderType: Text.NativeRendering
                             }
 
-                            ToolPill {
+                            Text {
+                                visible: treeRow.kind === "project" || treeRow.childCount > 0
+                                text: treeRow.completedTasks + "/" + treeRow.totalTasks
+                                color: panel.mutedColor
+                                font.family: panel.tokens.fontUi
+                                font.pixelSize: panel.tokens.sizeMeta
+                                renderType: Text.NativeRendering
+                            }
+
+                            TreeIconButton {
                                 objectName: "projectTreeAddChildButton"
-                                Layout.preferredWidth: 28
-                                Layout.preferredHeight: 28
-                                text: "+"
-                                widthHint: 28
-                                theme: panel.tokens
-                                uiFontFamily: panel.uiFontFamily
-                                uiFontSize: panel.uiFontSize
-                                visible: panel.selectedNodeId === row.nodeId
+                                visible: panel.selectedNodeId === treeRow.nodeId
+                                iconSource: "qrc:/assets/icons/plus.svg"
+                                accessibleName: "添加子项"
+                                accessibleDescription: "在“" + treeRow.title + "”下创建子项"
                                 onClicked: {
-                                    panel.setSelection(row.nodeId, row.title, row.kind, row.childCount, row.totalTasks, row.completedTasks, row.completed, row.depth, row.description)
+                                    panel.selectNode(treeRow.nodeId)
                                     panel.createChildForSelected()
                                 }
                             }
 
-                            ToolPill {
+                            TreeIconButton {
                                 objectName: "projectTreeDeleteButton"
-                                Layout.preferredWidth: 28
-                                Layout.preferredHeight: 28
-                                text: "-"
-                                widthHint: 28
+                                visible: panel.selectedNodeId === treeRow.nodeId
+                                iconSource: "qrc:/assets/icons/trash.svg"
+                                accessibleName: "删除节点"
+                                accessibleDescription: "删除“" + treeRow.title + "”及其全部子项"
                                 danger: true
-                                theme: panel.tokens
-                                uiFontFamily: panel.uiFontFamily
-                                uiFontSize: panel.uiFontSize
-                                visible: panel.selectedNodeId === row.nodeId
-                                onClicked: panel.removeNodeFromTree(row.nodeId)
+                                onClicked: {
+                                    panel.selectNode(treeRow.nodeId)
+                                    panel.removeSelected()
+                                }
                             }
                         }
                     }
 
                     Text {
+                        objectName: "projectEmptyState"
                         anchors.centerIn: parent
-                        width: Math.min(parent.width - 32, 260)
-                        visible: treeView.count === 0
-                        text: "还没有项目\n点击“+ 项目”后在右侧编辑标题和具体内容"
-                        color: panel.tokens.mutedSoft
+                        width: Math.min(parent.width - panel.tokens.space6, 280)
+                        visible: panel.model && panel.model.projectCount === 0
+                        text: "还没有项目\n从右上角创建第一个项目，再在右侧补充背景与下一步。"
+                        color: panel.mutedColor
+                        font.family: panel.tokens.fontUi
+                        font.pixelSize: panel.tokens.sizeBody
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        font.pixelSize: panel.tokens.sizeBody
-                        lineHeight: 1.35
+                        renderType: Text.NativeRendering
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: "项目树为空"
+                        Accessible.description: text
+                    }
+                }
+            }
+
+            Rectangle {
+                objectName: "projectInspectorCard"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: panel.tokens.radiusMd
+                color: panel.tokens.surface
+                border.width: 1
+                border.color: panel.tokens.border
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: panel.tokens.space4
+                    spacing: panel.tokens.space3
+
+                    TextField {
+                        id: titleEditor
+                        objectName: "projectInspectorTitleEditor"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: panel.tokens.primaryControlHeight
+                        enabled: panel.selectedNodeId > 0
+                        text: panel.selectedTitle
+                        placeholderText: "选择左侧项目或任务"
+                        selectByMouse: true
+                        activeFocusOnTab: true
+                        maximumLength: 256
+                        font.pixelSize: panel.tokens.sizeHeading
+                        font.weight: Font.DemiBold
                         font.family: panel.tokens.fontUi
+                        color: panel.inkColor
+                        renderType: Text.NativeRendering
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: "项目节点标题"
+                        Accessible.description: enabled ? "编辑所选节点标题" : "请先在左侧选择项目或任务"
+                        onAccepted: panel.commitInspectorTitle(text)
+                        onEditingFinished: panel.commitInspectorTitle(text)
+                        background: Rectangle {
+                            radius: panel.tokens.radiusMd
+                            color: titleEditor.enabled ? panel.tokens.surfaceHover
+                                                       : panel.tokens.surfaceDisabled
+                            border.width: titleEditor.activeFocus ? 2 : 1
+                            border.color: titleEditor.activeFocus
+                                          ? panel.tokens.focusRing : panel.tokens.border
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: panel.selectedNodeId > 0
+                              ? (panel.selectedKind === "project" ? "项目" : "任务")
+                                + " · " + panel.selectedProgressText
+                              : "左侧组织结构，右侧记录背景、要求和下一步。"
+                        color: panel.mutedColor
+                        font.pixelSize: panel.tokens.sizeBody
+                        font.family: panel.tokens.fontUi
+                        elide: Text.ElideRight
                         renderType: Text.NativeRendering
                     }
-                }
-            }
-        }
 
-        Rectangle {
-            objectName: "projectInspectorPane"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            radius: panel.tokens.radiusMd
-            color: "#55fffef7"
-            border.width: 1
-            border.color: "#1688c57f"
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: panel.clearTransientPressState()
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: panel.tokens.space4
-                spacing: panel.tokens.space3
-
-                Rectangle {
-                    objectName: "projectSummaryBar"
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 46
-                    radius: panel.tokens.radiusMd
-                    color: panel.tokens.card
-                    border.width: 1
-                    border.color: panel.tokens.lineSoft
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: panel.tokens.space3
-                        anchors.rightMargin: panel.tokens.space3
-                        spacing: panel.tokens.space3
-
-                        Text {
-                            objectName: "projectTaskCountText"
-                            text: "任务 " + panel.model.completedTasks + "/" + panel.model.totalTasks
-                            color: panel.inkColor
-                            font.pixelSize: panel.tokens.sizeBody
-                            font.weight: Font.Bold
-                            font.family: panel.tokens.fontUi
-                            renderType: Text.NativeRendering
+                    ScrollView {
+                        id: descriptionScroll
+                        objectName: "projectDescriptionScroll"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 160
+                        clip: true
+                        activeFocusOnTab: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                        background: Rectangle {
+                            radius: panel.tokens.radiusMd
+                            color: descriptionEditor.enabled ? panel.tokens.surfaceHover
+                                                             : panel.tokens.surfaceDisabled
+                            border.width: descriptionEditor.activeFocus ? 2 : 1
+                            border.color: descriptionEditor.activeFocus
+                                          ? panel.tokens.focusRing : panel.tokens.border
                         }
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 7
-                            radius: 4
-                            color: "#dbe7e4"
-                            clip: true
-
-                            Rectangle {
-                                width: parent.width * (panel.model.totalTasks > 0 ? panel.model.completedTasks / panel.model.totalTasks : 0)
-                                height: parent.height
-                                radius: 4
-                                color: panel.accentColor
-                                Behavior on width { NumberAnimation { duration: panel.tokens.motionMedium; easing.type: Easing.OutCubic } }
-                            }
+                        TextArea {
+                            id: descriptionEditor
+                            objectName: "projectDescriptionEditor"
+                            width: descriptionScroll.availableWidth
+                            enabled: panel.selectedNodeId > 0
+                            text: panel.selectedDescription
+                            placeholderText: "记录背景、要求、风险与下一步处理"
+                            wrapMode: TextEdit.Wrap
+                            selectByMouse: true
+                            activeFocusOnTab: true
+                            font.pixelSize: panel.tokens.sizeBody
+                            font.family: panel.tokens.fontUi
+                            color: panel.inkColor
+                            renderType: Text.NativeRendering
+                            Accessible.role: Accessible.EditableText
+                            Accessible.name: "项目节点详情"
+                            Accessible.description: enabled ? "编辑所选节点的详细内容"
+                                                               : "请先选择项目节点"
+                            onActiveFocusChanged: if (!activeFocus) panel.commitDescription(text)
+                            background: Rectangle { color: panel.tokens.transparent }
                         }
                     }
-                }
 
-                Rectangle {
-                    objectName: "projectInspectorCard"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    radius: panel.tokens.radiusMd
-                    color: panel.tokens.card
-                    border.width: 1
-                    border.color: panel.tokens.lineSoft
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: panel.tokens.space4
-                        spacing: panel.tokens.space3
-
-                        TextField {
-                            id: titleEditor
-                            objectName: "projectInspectorTitleEditor"
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 42
-                            enabled: panel.selectedNodeId > 0
-                            text: panel.selectedTitle
-                            placeholderText: "选择左侧项目或任务"
-                            selectByMouse: true
-                            font.pixelSize: panel.tokens.sizeTitle + 4
-                            font.weight: Font.Bold
-                            font.family: panel.tokens.fontUi
-                            color: panel.inkColor
-                            renderType: Text.NativeRendering
-                            onAccepted: panel.commitInspectorTitle(text)
-                            onEditingFinished: panel.commitInspectorTitle(text)
-                            background: Rectangle {
-                                radius: panel.tokens.radiusMd
-                                color: titleEditor.enabled ? "#fbfff7" : "#55fffef7"
-                                border.width: titleEditor.activeFocus ? 1 : 0
-                                border.color: panel.accentColor
-                                Behavior on border.width { NumberAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
-                            }
-                        }
+                    GridLayout {
+                        objectName: "projectInspectorMetaBar"
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: panel.tokens.space4
+                        rowSpacing: panel.tokens.space1
 
                         Text {
-                            Layout.fillWidth: true
-                            text: panel.selectedNodeId > 0
-                                  ? (panel.selectedKind === "project" ? "项目 · " : "任务 · ") + panel.selectedProgressText
-                                  : "左侧负责结构；右侧负责标题、具体内容和详情。"
+                            text: "路径"
                             color: panel.mutedColor
-                            font.pixelSize: panel.tokens.sizeBody + 1
+                            font.pixelSize: panel.tokens.sizeBody
                             font.family: panel.tokens.fontUi
-                            elide: Text.ElideRight
-                            renderType: Text.NativeRendering
                         }
-
-                        ScrollView {
-                            id: descriptionScroll
-                            objectName: "projectDescriptionScroll"
+                        Text {
+                            objectName: "projectInspectorPath"
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.minimumHeight: 128
-                            clip: true
-                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
-                            background: Rectangle {
-                                radius: panel.tokens.radiusMd
-                                color: descriptionEditor.enabled ? "#f8fff1" : "#55fffef7"
-                                border.width: descriptionEditor.activeFocus ? 1 : 0
-                                border.color: panel.accentColor
-                                Behavior on border.width { NumberAnimation { duration: panel.tokens.motionFast; easing.type: Easing.OutCubic } }
-                            }
+                            text: panel.selectedNodeId > 0 ? panel.selectedPath : "未选择"
+                            color: panel.inkColor
+                            font.pixelSize: panel.tokens.sizeBody
+                            font.family: panel.tokens.fontUi
+                            elide: Text.ElideMiddle
+                            Accessible.role: Accessible.StaticText
+                            Accessible.name: "节点路径"
+                            Accessible.description: text
+                        }
+                        Text {
+                            text: "类型"
+                            color: panel.mutedColor
+                            font.pixelSize: panel.tokens.sizeBody
+                            font.family: panel.tokens.fontUi
+                        }
+                        Text {
+                            text: panel.selectedKind === "project" ? "项目"
+                                  : panel.selectedKind === "task" ? "任务" : "未选择"
+                            color: panel.inkColor
+                            font.pixelSize: panel.tokens.sizeBody
+                            font.family: panel.tokens.fontUi
+                        }
+                    }
 
-                            TextArea {
-                                id: descriptionEditor
-                                objectName: "projectDescriptionEditor"
-                                width: descriptionScroll.availableWidth
-                                enabled: panel.selectedNodeId > 0
-                                text: panel.selectedDescription
-                                placeholderText: "记录这个项目/任务的背景、要求、下一步处理"
-                                wrapMode: TextEdit.Wrap
-                                selectByMouse: true
-                                font.pixelSize: panel.tokens.sizeBody + 1
-                                font.family: panel.tokens.fontUi
-                                color: panel.inkColor
-                                renderType: Text.NativeRendering
-                                onActiveFocusChanged: if (!activeFocus) panel.commitDescription(text)
-                                background: Rectangle { color: "transparent" }
-                            }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: panel.tokens.space2
+
+                        ToolPill {
+                            objectName: "projectInspectorCompleteButton"
+                            visible: panel.canToggleSelectedComplete
+                            text: panel.selectedCompleted ? "标为未完成" : "标为完成"
+                            widthHint: 120
+                            projectStyle: true
+                            theme: panel.tokens
+                            accessibleDescription: "切换所选叶子任务的完成状态"
+                            onClicked: panel.toggleSelectedComplete()
                         }
 
-                        GridLayout {
-                            objectName: "projectInspectorMetaBar"
-                            Layout.fillWidth: true
-                            columns: 2
-                            columnSpacing: panel.tokens.space4
-                            rowSpacing: panel.tokens.space1
+                        Item { Layout.fillWidth: true }
+                    }
 
-                            Text { text: "路径"; color: panel.mutedColor; font.pixelSize: panel.tokens.sizeBody; font.family: panel.tokens.fontUi }
-                            Text {
-                                objectName: "projectInspectorPath"
-                                Layout.fillWidth: true
-                                text: panel.selectedNodeId > 0 ? panel.selectedPath : "未选择"
-                                color: panel.inkColor
-                                font.pixelSize: panel.tokens.sizeBody
-                                font.family: panel.tokens.fontUi
-                                elide: Text.ElideRight
-                            }
-                            Text { text: "类型"; color: panel.mutedColor; font.pixelSize: panel.tokens.sizeBody; font.family: panel.tokens.fontUi }
-                            Text {
-                                text: panel.selectedKind === "project" ? "项目" : (panel.selectedKind === "task" ? "任务" : "未选择")
-                                color: panel.inkColor
-                                font.pixelSize: panel.tokens.sizeBody
-                                font.family: panel.tokens.fontUi
-                            }
-                            Text { text: "进度"; color: panel.mutedColor; font.pixelSize: panel.tokens.sizeBody; font.family: panel.tokens.fontUi }
-                            Text {
-                                objectName: "projectInspectorProgress"
-                                text: panel.selectedNodeId > 0 ? panel.selectedProgressText : "未选择节点"
-                                color: panel.inkColor
-                                font.pixelSize: panel.tokens.sizeBody
-                                font.family: panel.tokens.fontUi
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: panel.tokens.space2
-
-                            Loader {
-                                active: panel.canToggleSelectedComplete
-                                sourceComponent: ToolPill {
-                                    objectName: "projectInspectorCompleteButton"
-                                    text: panel.selectedCompleted ? "标为未完成" : "标为完成"
-                                    widthHint: 90
-                                    theme: panel.tokens
-                                    uiFontFamily: panel.uiFontFamily
-                                    uiFontSize: panel.uiFontSize
-                                    onClicked: panel.toggleSelectedComplete()
-                                }
-                            }
-
-                            Item { Layout.fillWidth: true }
-                        }
+                    Text {
+                        objectName: "projectPersistenceError"
+                        Layout.fillWidth: true
+                        visible: panel.model && panel.model.lastError !== undefined &&
+                                 panel.model.lastError.length > 0
+                        text: panel.model && panel.model.lastError !== undefined
+                              ? panel.model.lastError : ""
+                        color: panel.tokens.danger
+                        font.family: panel.tokens.fontUi
+                        font.pixelSize: panel.tokens.sizeBody
+                        wrapMode: Text.WordWrap
+                        Accessible.role: Accessible.AlertMessage
+                        Accessible.name: text
                     }
                 }
             }
@@ -695,10 +722,22 @@ Item {
 
     Connections {
         target: panel.model
+        ignoreUnknownSignals: true
+
+        function onSelectionChanged() {
+            panel.clearTransientPressState()
+            Qt.callLater(panel.syncEditors)
+        }
+
         function onTreeChanged() {
-            panel.refreshAiContext()
+            panel.clearTransientPressState()
+            Qt.callLater(panel.syncEditors)
+        }
+
+        function onPersistenceError(message) {
+            panel.noticeRequested(message)
         }
     }
 
-    Component.onCompleted: refreshAiContext()
+    Component.onCompleted: Qt.callLater(syncEditors)
 }

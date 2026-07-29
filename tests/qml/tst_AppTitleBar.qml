@@ -42,4 +42,21 @@ TestCase {
         compare(settingsButton.active, true)
         compare(settingsButton.primary, false)
     }
+
+    function test_titlebarAvoidsDuplicatingNativeWindowIdentity() {
+        const notesButton = findChild(titlebar, "stickiesWorkspaceButton")
+        const minimizeButton = findChild(titlebar, "minimizeWindowButton")
+        const maximizeButton = findChild(titlebar, "maximizeWindowButton")
+        const closeButton = findChild(titlebar, "closeWindowButton")
+
+        verify(findChild(titlebar, "brandNameLabel") === null)
+        verify(notesButton.activeFocusOnTab)
+        verify(notesButton.implicitHeight >= 40)
+        compare(minimizeButton.accessibleName, "最小化")
+        compare(maximizeButton.accessibleName, "最大化窗口")
+        compare(closeButton.accessibleName, "关闭")
+        verify(minimizeButton.implicitWidth >= 40)
+        verify(maximizeButton.implicitWidth >= 40)
+        verify(closeButton.implicitWidth >= 40)
+    }
 }

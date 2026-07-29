@@ -42,7 +42,7 @@ Item {
         field.forceActiveFocus()
     }
 
-    height: open || query.length > 0 ? 66 : 0
+    height: open || query.length > 0 ? search.tokens.controlHeight * 2 + search.tokens.space2 : 0
     opacity: open || query.length > 0 ? 1 : 0
     clip: true
 
@@ -52,9 +52,9 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: search.tokens.radiusMd
-        color: "#ccfffef7"
-        border.width: 1
-        border.color: field.activeFocus ? "#552d68c7" : search.tokens.lineSoft
+        color: search.tokens.surface
+        border.width: field.activeFocus ? 2 : 1
+        border.color: field.activeFocus ? search.tokens.focusRing : search.tokens.border
 
         TextField {
             id: field
@@ -62,18 +62,23 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 34
+            height: search.tokens.controlHeight
             anchors.leftMargin: search.tokens.space3
-            anchors.rightMargin: clearButton.width + 10
-            placeholderText: "搜索全部便签，按 Esc 关闭"
+            anchors.rightMargin: clearButton.visible ? clearButton.width + search.tokens.space2 : search.tokens.space3
+            placeholderText: "搜索便签内容，按 Esc 清除或关闭"
             font.pixelSize: search.tokens.sizeBody + 1
             font.family: search.tokens.fontUi
             color: search.inkColor
             placeholderTextColor: search.tokens.mutedSoft
-            selectionColor: search.tokens.accentYellowSoft
+            selectionColor: search.tokens.accentSoft
             selectedTextColor: search.inkColor
             renderType: Text.NativeRendering
             background: Item {}
+            activeFocusOnTab: true
+
+            Accessible.role: Accessible.EditableText
+            Accessible.name: "搜索便签"
+            Accessible.description: "输入关键词，在全部便签中搜索"
 
             Component.onCompleted: text = search.query
             onTextEdited: search.queryEdited(text)
@@ -95,29 +100,38 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: search.tokens.space2
             anchors.top: parent.top
-            anchors.topMargin: 5
-            width: 24
-            height: 24
+            width: 52
+            height: search.tokens.controlHeight
             visible: field.text.length > 0
-            text: "×"
+            text: "清除"
             hoverEnabled: true
+            activeFocusOnTab: true
             onClicked: {
                 search.clearAndFocus()
             }
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "清除搜索"
+            Accessible.description: "清空搜索关键词并继续输入"
 
             contentItem: Text {
                 text: clearButton.text
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 color: clearButton.hovered ? search.tokens.danger : search.mutedColor
-                font.pixelSize: search.tokens.sizeTitle + 1
+                font.pixelSize: search.tokens.sizeLabel
+                font.weight: Font.DemiBold
                 font.family: search.tokens.fontUi
                 renderType: Text.NativeRendering
             }
 
             background: Rectangle {
-                radius: width / 2
-                color: clearButton.hovered ? search.tokens.dangerSoft : "transparent"
+                radius: search.tokens.radiusSm
+                color: clearButton.pressed ? search.tokens.surfacePressed
+                     : clearButton.hovered ? search.tokens.surfaceHover
+                                           : search.tokens.transparent
+                border.width: clearButton.visualFocus ? 2 : 0
+                border.color: search.tokens.focusRing
                 Behavior on color { ColorAnimation { duration: search.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
         }
@@ -128,7 +142,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: search.tokens.space2
             anchors.top: field.bottom
-            height: 28
+            height: search.tokens.controlHeight
             spacing: search.tokens.space2
 
             ToolPill {
@@ -138,6 +152,7 @@ Item {
                 theme: search.tokens
                 uiFontFamily: search.uiFontFamily
                 uiFontSize: search.uiFontSize
+                accessibleDescription: "显示全部搜索结果"
                 onClicked: search.completionFilterRequested(-1)
             }
 
@@ -148,6 +163,7 @@ Item {
                 theme: search.tokens
                 uiFontFamily: search.uiFontFamily
                 uiFontSize: search.uiFontSize
+                accessibleDescription: "只显示未完成的搜索结果"
                 onClicked: search.completionFilterRequested(0)
             }
 
@@ -158,6 +174,7 @@ Item {
                 theme: search.tokens
                 uiFontFamily: search.uiFontFamily
                 uiFontSize: search.uiFontSize
+                accessibleDescription: "只显示已完成的搜索结果"
                 onClicked: search.completionFilterRequested(1)
             }
         }

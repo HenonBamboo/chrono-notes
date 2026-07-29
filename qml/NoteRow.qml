@@ -39,7 +39,7 @@ Rectangle {
                                  : ""
     property bool hovering: rowHover.containsMouse || actionRow.hovering
     property int contentInset: archive ? 16 : 18
-    property int actionGutter: archive ? 94 : 150
+    property int actionGutter: archive ? 100 : 152
 
     signal toggleRequested()
     signal deleteRequested()
@@ -56,12 +56,29 @@ Rectangle {
         return Math.max(compact && !expanded ? 62 : 78, normalContent.implicitHeight + (compact && !expanded ? 24 : 32))
     }
     radius: 0
-    color: "transparent"
+    color: row.tokens.transparent
     visible: !collapsedBySection
     opacity: completed || archive ? 0.9 : 1
     border.width: 0
     antialiasing: true
     clip: true
+    activeFocusOnTab: !row.editing && row.visible
+
+    Accessible.role: Accessible.ListItem
+    Accessible.name: row.text
+    Accessible.description: row.archive ? "自动收纳便签，只读，按 Enter 查看详情"
+                            : row.completed ? "已完成便签，按 Enter 查看详情"
+                            : "未完成便签，按 Enter 查看详情，按 Space 标记完成"
+
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            row.viewRequested()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Space && !row.readOnly) {
+            row.toggleRequested()
+            event.accepted = true
+        }
+    }
 
     Behavior on height { NumberAnimation { duration: row.tokens.motionSlow; easing.type: Easing.OutCubic } }
     Behavior on opacity { NumberAnimation { duration: row.tokens.motionMedium; easing.type: Easing.OutCubic } }
@@ -71,10 +88,12 @@ Rectangle {
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: row.archive ? row.tokens.radiusMd : row.tokens.radiusMd
-        color: row.archive ? "#99fffbea" : row.completed ? "#99fffbea" : row.cardColor
-        border.width: 1
-        border.color: row.hovering ? "#55f4bf30" : row.tokens.lineSoft
+        radius: row.tokens.radiusMd
+        color: row.archive ? row.tokens.archiveSurface
+             : row.completed ? row.tokens.completedSurface : row.cardColor
+        border.width: row.activeFocus ? 2 : 1
+        border.color: row.activeFocus ? row.tokens.focusRing
+                    : row.hovering ? row.tokens.accent : row.tokens.borderSubtle
         antialiasing: true
         clip: true
         Behavior on border.color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
@@ -86,7 +105,8 @@ Rectangle {
         anchors.left: card.left
         anchors.top: card.top
         anchors.bottom: card.bottom
-        color: row.archive ? row.tokens.mutedSoft : row.completed ? row.blueColor : row.tokens.accentYellow
+        color: row.archive ? row.tokens.textDisabled
+             : row.completed ? row.tokens.projectAccent : row.tokens.accent
         opacity: row.hovering || row.completed ? 0.95 : 0
         Behavior on opacity { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
     }
@@ -119,6 +139,8 @@ Rectangle {
         enabled: !row.editing
         hoverEnabled: true
         cursorShape: row.readOnly ? Qt.PointingHandCursor : Qt.IBeamCursor
+        Accessible.ignored: true
+        onPressed: row.forceActiveFocus()
         onClicked: row.readOnly ? row.viewRequested() : row.startEdit()
     }
 
@@ -137,7 +159,7 @@ Rectangle {
             text: row.highlightedText.length > 0 ? row.highlightedText : row.text
             textFormat: Text.StyledText
             color: row.completed ? row.tokens.muted : row.inkColor
-            font.pixelSize: row.compact ? row.tokens.sizeBody + 1 : row.tokens.sizeTitle + 1
+            font.pixelSize: row.tokens.sizeBody + 1
             font.family: row.tokens.fontUi
             font.weight: Font.Bold
             maximumLineCount: row.expanded ? 8 : (row.compact ? 1 : 3)
@@ -164,27 +186,27 @@ Rectangle {
             visible: row.completed
 
             Rectangle {
-                width: 18
-                height: 18
-                radius: 7
-                color: row.tokens.accentBlueSoft
+                width: 56
+                height: 24
+                radius: row.tokens.radiusPill
+                color: row.tokens.projectAccentSoft
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
-                    text: "✓"
-                    color: row.blueColor
-                    font.pixelSize: row.tokens.sizeBody + 1
-                    font.weight: Font.Bold
+                    text: "已完成"
+                    color: row.tokens.projectAccent
+                    font.pixelSize: row.tokens.sizeMeta
+                    font.weight: Font.DemiBold
                     font.family: row.tokens.fontUi
                     renderType: Text.NativeRendering
                 }
             }
 
             Text {
-                width: Math.max(30, parent.width - 26)
+                width: Math.max(30, parent.width - 64)
                 text: row.meta
-                color: row.blueColor
+                color: row.tokens.projectAccent
                 font.pixelSize: row.compact ? row.tokens.sizeMeta : row.tokens.sizeBody
                 font.weight: Font.DemiBold
                 font.family: row.tokens.fontUi
@@ -210,16 +232,16 @@ Rectangle {
             spacing: 9
 
             Rectangle {
-                width: 22
-                height: 22
-                radius: 8
-                color: row.tokens.lineSoft
+                width: 44
+                height: 24
+                radius: row.tokens.radiusPill
+                color: row.tokens.surfaceMuted
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
-                    text: "收"
-                    color: row.tokens.muted
+                    text: "收纳"
+                    color: row.tokens.textSecondary
                     font.pixelSize: row.tokens.sizeMeta
                     font.weight: Font.Bold
                     font.family: row.tokens.fontUi
@@ -228,10 +250,10 @@ Rectangle {
             }
 
             Text {
-                width: parent.width - 31
+                width: parent.width - 53
                 text: row.text
                 color: row.tokens.muted
-                font.pixelSize: row.compact ? row.tokens.sizeBody + 1 : row.tokens.sizeTitle + 1
+                font.pixelSize: row.tokens.sizeBody + 1
                 font.family: row.tokens.fontUi
                 font.weight: Font.DemiBold
                 maximumLineCount: row.expanded ? 6 : 2
@@ -257,6 +279,7 @@ Rectangle {
 
     TextArea {
         id: editor
+        objectName: "noteEditor"
         visible: row.editing
         anchors.left: card.left
         anchors.leftMargin: 14
@@ -267,17 +290,21 @@ Rectangle {
         anchors.bottom: card.bottom
         anchors.bottomMargin: 9
         wrapMode: TextEdit.WrapAnywhere
-        font.pixelSize: row.tokens.sizeTitle + 1
+        font.pixelSize: row.tokens.sizeBody + 1
         font.family: row.tokens.fontUi
         color: row.inkColor
         selectedTextColor: row.inkColor
-        selectionColor: row.tokens.accentYellowSoft
+        selectionColor: row.tokens.accentSoft
+        activeFocusOnTab: true
         renderType: Text.NativeRendering
+        Accessible.role: Accessible.EditableText
+        Accessible.name: "编辑便签"
+        Accessible.description: "修改便签内容，按 Enter 保存，按 Esc 取消"
         background: Rectangle {
             radius: row.tokens.radiusMd
-            color: row.tokens.cardQuiet
-            border.color: "#66f4bf30"
-            border.width: 1
+            color: row.tokens.surfaceMuted
+            border.color: editor.activeFocus ? row.tokens.focusRing : row.tokens.border
+            border.width: editor.activeFocus ? 2 : 1
         }
         Keys.onPressed: function(event) {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -298,7 +325,7 @@ Rectangle {
         anchors.right: card.right
         anchors.rightMargin: 18
         anchors.verticalCenter: card.verticalCenter
-        spacing: 8
+        spacing: 4
         visible: !row.editing
         opacity: row.hovering ? 1 : 0.74
         z: 4
@@ -306,16 +333,21 @@ Rectangle {
 
         Button {
             id: completeButton
+            objectName: "completeNoteButton"
             visible: !row.readOnly && !row.completed
             flat: true
             hoverEnabled: true
+            activeFocusOnTab: true
             text: "完成"
             onClicked: row.toggleRequested()
-            implicitWidth: 42
-            implicitHeight: 28
+            implicitWidth: 44
+            implicitHeight: row.tokens.controlHeight
+            Accessible.role: Accessible.Button
+            Accessible.name: "完成便签"
+            Accessible.description: "将这条便签标记为完成"
             contentItem: Text {
                 text: completeButton.text
-                color: completeButton.hovered ? row.blueColor : row.tokens.muted
+                color: completeButton.hovered ? row.tokens.projectAccent : row.tokens.textSecondary
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: row.tokens.sizeBody
@@ -324,23 +356,32 @@ Rectangle {
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
-                radius: 12
-                color: completeButton.hovered ? row.tokens.accentBlueSoft : "#00ffffff"
+                radius: row.tokens.radiusSm
+                color: completeButton.pressed ? row.tokens.surfacePressed
+                     : completeButton.hovered ? row.tokens.projectAccentSoft
+                                              : row.tokens.transparent
+                border.width: completeButton.visualFocus ? 2 : 0
+                border.color: row.tokens.focusRing
                 Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
-            scale: completeButton.pressed ? 0.94 : completeButton.hovered ? 1.05 : 1
+            scale: completeButton.pressed ? 0.96 : 1
             Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
 
         Button {
             id: deleteButton
+            objectName: "deleteNoteButton"
             visible: !row.readOnly
             flat: true
             hoverEnabled: true
+            activeFocusOnTab: true
             text: "删除"
             onClicked: row.deleteRequested()
-            implicitWidth: 42
-            implicitHeight: 28
+            implicitWidth: 44
+            implicitHeight: row.tokens.controlHeight
+            Accessible.role: Accessible.Button
+            Accessible.name: "删除便签"
+            Accessible.description: "永久删除这条便签"
             contentItem: Text {
                 text: deleteButton.text
                 color: deleteButton.hovered ? row.tokens.danger : row.tokens.muted
@@ -352,26 +393,34 @@ Rectangle {
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
-                radius: 12
-                color: deleteButton.hovered ? row.tokens.dangerSoft : "#00ffffff"
+                radius: row.tokens.radiusSm
+                color: deleteButton.pressed || deleteButton.hovered
+                     ? row.tokens.dangerSoft : row.tokens.transparent
+                border.width: deleteButton.visualFocus ? 2 : 0
+                border.color: row.tokens.focusRing
                 Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
-            scale: deleteButton.pressed ? 0.94 : deleteButton.hovered ? 1.05 : 1
+            scale: deleteButton.pressed ? 0.96 : 1
             Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
 
         Button {
             id: viewButton
+            objectName: "viewNoteButton"
             visible: true
             flat: true
             hoverEnabled: true
+            activeFocusOnTab: true
             text: row.readOnly ? "查看" : "详情"
             onClicked: row.viewRequested()
             implicitWidth: 44
-            implicitHeight: 28
+            implicitHeight: row.tokens.controlHeight
+            Accessible.role: Accessible.Button
+            Accessible.name: row.readOnly ? "查看便签详情" : "打开便签详情"
+            Accessible.description: row.readOnly ? "查看这条自动收纳便签" : "打开并编辑这条便签"
             contentItem: Text {
                 text: viewButton.text
-                color: viewButton.hovered ? row.blueColor : row.tokens.muted
+                color: viewButton.hovered ? row.tokens.accent : row.tokens.textSecondary
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: row.tokens.sizeBody
@@ -380,11 +429,15 @@ Rectangle {
                 renderType: Text.NativeRendering
             }
             background: Rectangle {
-                radius: 12
-                color: viewButton.hovered ? row.tokens.accentBlueSoft : "#00ffffff"
+                radius: row.tokens.radiusSm
+                color: viewButton.pressed ? row.tokens.surfacePressed
+                     : viewButton.hovered ? row.tokens.accentSoft
+                                          : row.tokens.transparent
+                border.width: viewButton.visualFocus ? 2 : 0
+                border.color: row.tokens.focusRing
                 Behavior on color { ColorAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
             }
-            scale: viewButton.pressed ? 0.94 : viewButton.hovered ? 1.05 : 1
+            scale: viewButton.pressed ? 0.96 : 1
             Behavior on scale { NumberAnimation { duration: row.tokens.motionFast; easing.type: Easing.OutCubic } }
         }
     }

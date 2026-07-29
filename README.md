@@ -5,11 +5,12 @@
 <h1 align="center">ChronoNotes</h1>
 
 <p align="center">
-  A local-first Windows desktop notebook for time-based notes, task capture, and AI-assisted summaries.
+  A lightweight, local-first Windows notebook for time-based notes,
+  project thinking, and private AI-assisted summaries.
 </p>
 
 <p align="center">
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-2563eb">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2011-2563eb">
   <img alt="Qt" src="https://img.shields.io/badge/Qt-6.8-41cd52">
   <img alt="C++" src="https://img.shields.io/badge/C%2B%2B-17-00599c">
   <img alt="CMake" src="https://img.shields.io/badge/CMake-4.0%2B-064f8c">
@@ -18,296 +19,205 @@
 
 ---
 
-**ChronoNotes** 是一款基于 **Qt 6 Quick/QML + C++17** 的本地优先桌面笔记与任务整理工具。它围绕“每天、每周、每月、每年”四类时间阶段组织记录，提供快速输入、搜索筛选、重复任务、导入导出、操作日志和 OpenAI-compatible AI 摘要能力。
+ChronoNotes 是一款基于 Qt 6 Quick/QML 与 C++17 的 Windows 11
+桌面应用。产品结构坚持“便签主、项目辅”：日常记录保持足够快，
+项目树负责补充上下文，AI 摘要只处理用户明确选择的本地快照。
 
-它不是协作文档平台，也不是复杂项目管理系统。ChronoNotes 的目标更克制：让个人日常记录足够快、足够清楚、足够可靠，并且默认把数据留在本机。
+它不是多人协作平台，也不试图复制 Notion 或 Jira。核心目标只有四个：
+好用、好看、轻量、可靠。
 
-## 目录
-
-- [核心亮点](#核心亮点)
-- [适用场景](#适用场景)
-- [功能概览](#功能概览)
-- [架构设计](#架构设计)
-- [项目结构](#项目结构)
-- [快速开始](#快速开始)
-- [构建与运行](#构建与运行)
-- [验证与测试](#验证与测试)
-- [打包发布](#打包发布)
-- [数据与隐私](#数据与隐私)
-- [AI 摘要配置](#ai-摘要配置)
-- [路线图](#路线图)
-- [许可](#许可)
-
-## 核心亮点
+## 核心能力
 
 | 方向 | 说明 |
 | --- | --- |
-| 本地优先 | 默认使用本地 SQLite 和本地配置文件，不依赖账号系统或云端服务。 |
-| 时间阶段 | 以日、周、月、年组织记录，适合任务回顾、阶段复盘和长期积累。 |
-| 快速记录 | 支持新增、编辑、完成、删除、取消完成和短时撤销，日常使用不绕路。 |
-| 可检索 | 支持跨阶段搜索、完成状态筛选和关键词高亮。 |
-| 可迁移 | 支持 JSON 导入/导出和 Markdown 导出，数据不被锁死。 |
-| 可扩展 | AI 摘要使用 OpenAI-compatible HTTP 接口，模型与服务地址可配置。 |
+| 时间阶段 | 以每天、每周、每月、每年组织便签，支持跨阶段搜索与聚合回顾。 |
+| 稳定任务 | 支持新增、编辑、完成、删除、批量处理、短时撤销和稳定重复任务系列。 |
+| 项目辅助 | 使用可校验、可持久化的项目树记录项目、任务、描述和祖先路径。 |
+| 本地优先 | SQLite、配置、备份、摘要历史和诊断文件默认全部留在本机。 |
+| 安全 AI | API Key 仅保存在 Windows Credential Manager；默认只允许 HTTPS。 |
+| 可恢复 | `.chrononotes` v2 工作区备份包含便签、项目树、摘要历史与非敏感偏好。 |
+| 可迁移 | 兼容旧 JSON v1、旧文本便签数据与 Markdown 导出。 |
+| 无障碍 | 提供键盘导航、焦点环、语义名称、减少动画与高 DPI 支持。 |
 
-## 适用场景
+## 界面与交互
 
-ChronoNotes 适合：
+- 原生 Windows 11 标题栏保留 Snap、系统菜单和辅助技术兼容性。
+- 内容区使用暖象牙画布、纸张表面、墨色正文、琥珀主强调与鼠尾草项目色。
+- 时间阶段使用低权重文字导航；批量完成收在“批量”菜单中。
+- 项目树、AI 与设置面板通过 `Loader` 按需创建。
+- 覆盖首次启动、空数据、无搜索结果、AI 未配置/运行/失败、
+  非法导入、只读恢复和未选择项目等状态。
 
-- 管理每天的短任务、临时记录和阶段性事项。
-- 每周、每月、每年回看自己做过什么、漏了什么。
-- 将零散记录导出为 Markdown 或 JSON，方便归档和迁移。
-- 在不引入完整项目管理系统的前提下，保留清晰的本地任务流。
-- 使用自定义 OpenAI-compatible 服务生成阶段摘要。
-
-ChronoNotes 不适合：
-
-- 多人实时协作。
-- 企业权限、审计、审批流。
-- 替代 Notion、Jira、Trello 等大型平台。
-- 把所有数据默认交给云端处理。
-
-## 功能概览
-
-### 时间阶段与任务管理
-
-- 每天、每周、每月、每年四类阶段视图。
-- 每条记录支持文本内容、完成状态、更新时间和阶段归属。
-- 周、月、年视图可聚合每日事项，便于阶段复盘。
-- 支持 `daily`、`weekly`、`monthly`、`yearly` 重复规则。
-- 支持短时 `Ctrl+Z` 撤销最近一次关键操作。
-
-### 搜索、归档与导入导出
-
-- 跨阶段全文搜索。
-- 按完成状态筛选。
-- 搜索关键词高亮。
-- JSON 导入与导出。
-- Markdown 导出，适合长期归档。
-- 旧版 `notes.db.txt` 数据首次启动时会迁移到 SQLite。
-
-### AI 摘要
-
-- 支持配置 API URL、API Key 和模型名称。
-- 使用 OpenAI-compatible HTTP 接口生成阶段摘要。
-- 摘要流程异步执行，避免阻塞主界面。
-- 摘要历史写入本地文件，便于后续回看。
-
-### 桌面体验
-
-- Qt Quick/QML 原生桌面界面，不使用 WebView。
-- 自绘标题栏。
-- 无边框窗口。
-- 支持四边与四角拖拽缩放。
-- 提供本地项目结构视图，辅助理解工程文件关系。
-
-## 架构设计
+## 架构
 
 ```mermaid
 flowchart LR
-  UI["QML UI<br/>Stage views, editor, settings"] --> App["QtNoteApp<br/>Application facade"]
-  App --> View["NoteView<br/>Filtering and stage projection"]
-  App --> Store["NoteStore<br/>SQLite persistence"]
-  App --> Config["Config<br/>Local settings"]
-  App --> AI["AiClient<br/>OpenAI-compatible HTTP"]
-  App --> Backup["BackupService<br/>JSON and Markdown IO"]
-  Store --> SQLite["notes.sqlite"]
-  Config --> INI["config.ini"]
-  AI --> Summary["summary-history.md"]
-  App --> Log["operations.jsonl"]
+  UI["QML UI<br/>notes first, projects second"] --> App["NoteApp<br/>application facade"]
+  App --> Notebook["Notebook<br/>value-only deep module"]
+  App --> Config["Versioned config<br/>QSaveFile"]
+  App --> Credentials["CredentialStore<br/>Windows Credential Manager"]
+  App --> AI["AiClient<br/>cancellable request state"]
+  App --> Recovery["WorkspaceRecovery<br/>preview, backup, restore"]
+  App --> Tree["ProjectTreeModel<br/>validated atomic snapshot"]
+  Notebook --> SQLite["SQLite v2<br/>transactional CRUD"]
+  Recovery --> Workspace[".chrononotes v2"]
 ```
 
-| 层级 | 文件 | 职责 |
-| --- | --- | --- |
-| 启动入口 | `src/qt_main.cpp` | 初始化 Qt 应用、注册类型、加载 QML 模块。 |
-| 应用门面 | `src/qt_note_app.cpp` / `src/qt_note_app.h` | 连接 UI、数据、配置、AI、导入导出等模块。 |
-| 视图模型 | `src/note_view.cpp` / `src/note_view.h` | 阶段筛选、搜索过滤、展示数据整理。 |
-| 数据存储 | `src/note_store.cpp` / `src/note_store.h` | SQLite 持久化、迁移、操作事件记录。 |
-| 配置管理 | `src/config.cpp` / `src/config.h` | 本地配置读写。 |
-| AI 客户端 | `src/ai_client.cpp` / `src/ai_client.h` | OpenAI-compatible HTTP 请求。 |
-| 导入导出 | `src/backup_service.cpp` / `src/backup_service.h` | JSON 与 Markdown 数据交换。 |
-| 项目树 | `src/project_tree_model.cpp` / `src/project_tree_model.h` | 本地项目结构展示。 |
+| 模块 | 职责 |
+| --- | --- |
+| `src/qt_note_app.*` | 面向 QML 的应用门面、视图投影、撤销与 AI 请求状态。 |
+| `src/notebook.*` | 隐藏 SQLite、容器、排序和迁移实现，只暴露 `QString` 值对象与明确错误。 |
+| `src/note_store.*` | Notebook 内部使用的旧数据适配与 SQLite 迁移实现。 |
+| `src/config.*` | 版本化非敏感设置、字段校验与原子保存。 |
+| `src/credential_store.*` | API Key 的 Windows 凭据库读写与旧明文迁移。 |
+| `src/ai_client.*` | HTTPS 策略、超时、取消、响应上限与敏感错误脱敏。 |
+| `src/workspace_recovery.*` | 工作区预览、危险操作前备份、恢复、保留策略与诊断导出。 |
+| `src/backup_service.*` | `.chrononotes` v2、JSON v1 与 Markdown 编解码。 |
+| `src/project_tree_model.*` | 循环/孤儿/重复 ID 校验、缓存统计、选择状态与原子保存。 |
+| `src/local_profile.*` | 安装、便携、测试覆盖路径与旧数据只复制迁移。 |
+| `src/clock.*` | 生产时钟与可注入测试时钟。 |
 
-## 项目结构
+## 数据规则
+
+数据目录按以下优先级解析：
+
+1. 测试或开发覆盖变量 `STICKY_NOTES_DATA_DIR`。
+2. 程序旁存在 `portable.flag` 时，使用程序旁 `data/`。
+3. 其他情况使用 `QStandardPaths::AppLocalDataLocation`。
+
+旧目录迁移只复制并验证，不删除原文件。核心文件包括：
 
 ```text
-assets/       图标、README banner 与展示素材
-docs/         项目状态、计划与设计说明
-qml/          Qt Quick/QML 界面组件
-src/          C++ 应用层、数据层、配置、AI 和导入导出模块
-tests/        C++ 单元测试与 QML 交互测试
-tools/        打包与维护脚本
-CMakeLists.txt
-resources.qrc
+notes.sqlite
+config.ini
+project_tree.json
+summary-history.md
+operations.jsonl
+backups/
 ```
 
-## 快速开始
+- 便签正文使用 SQLite `TEXT`，严格限制为 65,536 个字符；超限失败且不截断。
+- 重复任务使用稳定 `series_id`，完成、派生下一项与撤销逆操作均在事务中完成。
+- `config.ini` 只保存非敏感偏好；API Key 不会写入配置或工作区备份。
+- 操作日志不保存便签正文、项目描述、AI 内容或 API Key。
+- 自动备份保留 7 个每日备份、3 个危险操作前备份，总量不超过 200 MiB。
 
-### 环境要求
+## 构建
 
-- Windows 10/11
-- Qt 6.8.x MinGW
+### 环境
+
+- Windows 11
+- Qt 6.8.3 MinGW
 - CMake 4.0+
 - 支持 C++17 的 MinGW 工具链
 
-仓库默认按下面的相对路径查找 Qt：
+仓库默认查找：
 
 ```text
 third_party/Qt/6.8.3/mingw_64
 ```
 
-如果你的 Qt 安装在其他位置，在 CMake 配置阶段传入 `CMAKE_PREFIX_PATH` 即可。不要提交本机 Qt SDK、构建目录、运行数据或 API Key。仓库是给人看的，不是搬家箱。
-
-## 构建与运行
-
-下面命令使用通用占位符，请把 `<qt-mingw-path>` 替换成自己的 Qt MinGW 安装目录。
+推荐使用统一入口；脚本会发现 Qt、MinGW 与 CLion 附带的 CMake，并把临时目录
+固定在被 Git 忽略的构建目录中：
 
 ```powershell
-cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH="<qt-mingw-path>"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1 `
+  -Configuration Debug -BuildDir cmake-build-debug -RunTests
+
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1 `
+  -Configuration Release -BuildDir cmake-build-release -Clean -RunTests
+```
+
+也可以手动配置：
+
+```powershell
+cmake -S . -B build -G "MinGW Makefiles" `
+  -DCMAKE_PREFIX_PATH="<qt-mingw-path>"
 cmake --build build -j 6
+ctest --test-dir build --output-on-failure
 ```
 
-如果测试运行时找不到 MinGW 运行时 DLL，可以在配置阶段补充：
-
-```powershell
-cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH="<qt-mingw-path>" -DCHRONONOTES_MINGW_RUNTIME_BIN="<mingw-bin-path>"
-```
-
-构建目标：
-
-```text
-ChronoNotes
-```
-
-运行程序：
+运行：
 
 ```powershell
 .\build\ChronoNotes.exe
 ```
 
-如果你使用 CLion、Qt Creator 或 Visual Studio Code，也可以直接打开项目根目录，由 IDE 管理 CMake 配置。README 不绑定任何个人 IDE 路径，别人 clone 下来才不会像误入你的硬盘导航。
+## 测试
 
-## 验证与测试
+CTest 当前注册 10 组测试：
 
-运行 CTest：
-
-```powershell
-ctest --test-dir build --output-on-failure
-```
-
-当前测试覆盖：
-
-| 测试 | 覆盖范围 |
+| 测试 | 主要覆盖 |
 | --- | --- |
-| `note_store_tests` | SQLite 存储、迁移、事件记录、数据边界。 |
-| `note_view_tests` | 阶段视图、搜索、筛选和展示投影。 |
-| `project_tree_model_tests` | 本地项目树模型。 |
-| `config_tests` | 本地配置读写。 |
-| `qt_note_app_tests` | 应用门面、任务流程、导入导出、AI 配置路径。 |
-| `qml_interaction_tests` | QML 组件交互。 |
+| `note_store_tests` | 旧数据适配、SQLite schema 与迁移。 |
+| `notebook_tests` | 事务 CRUD、回滚、锁库、只读、损坏库、磁盘满、长文本与性能。 |
+| `note_view_tests` | 阶段投影、搜索、筛选与归档。 |
+| `project_tree_model_tests` | 结构校验、选择、祖先路径、缓存统计与 5,000 节点操作。 |
+| `config_tests` | 版本化配置、原子保存、明文 Key 迁移字段与未来版本保护。 |
+| `ai_client_tests` | HTTPS、localhost 例外、取消、超时、大小限制与脱敏。 |
+| `backup_service_tests` | JSON v1、工作区 v2、非法输入和敏感字段排除。 |
+| `workspace_recovery_tests` | 预览、危险操作前备份、恢复回滚、保留策略与诊断。 |
+| `qt_note_app_tests` | 业务流程、跨日期时钟、撤销、AI 乱序与工作区事务。 |
+| `qml_interaction_tests` | UI 状态、键盘目标、焦点、无障碍与视觉令牌。 |
 
-运行 QML 静态检查：
-
-```powershell
-qmllint `
-  qml/Main.qml `
-  qml/AppTitleBar.qml `
-  qml/StageTabs.qml `
-  qml/SearchBar.qml `
-  qml/EventComposer.qml `
-  qml/ProgressStats.qml `
-  qml/NoteListPanel.qml `
-  qml/NoteRow.qml `
-  qml/ProjectTreePanel.qml `
-  qml/OverlayPanel.qml `
-  qml/AiSummaryPanel.qml `
-  qml/DetailPanel.qml `
-  qml/SettingsPanel.qml `
-  qml/TinyMeta.qml `
-  qml/ToolPill.qml `
-  qml/WindowButton.qml
-```
-
-如果 `cmake`、`ctest` 或 `qmllint` 不在 PATH 中，请使用本机 Qt/CMake 安装目录下的对应可执行文件。
-
-## 打包发布
-
-发布脚本会整理可执行文件、Qt 运行时、README 和展示素材，并生成 ZIP 包。
+QML 静态检查：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/package_release.ps1 -BuildDir build -OutputDir dist
+cmake --build build --target all_qmllint -j 6
 ```
 
-默认输出：
-
-```text
-dist\ChronoNotes.zip
-```
-
-脚本参数：
-
-| 参数 | 默认值 | 说明 |
-| --- | --- | --- |
-| `BuildDir` | `build` | 已完成构建的目录。 |
-| `OutputDir` | `dist` | 发布产物输出目录。 |
-| `PackageName` | `ChronoNotes` | 发布包目录名与 ZIP 文件名。 |
-
-如果你使用其他构建目录，请显式传入 `-BuildDir <build-dir>`。
-
-## 数据与隐私
-
-运行数据默认保存在程序目录下的 `data/`：
-
-```text
-data\notes.sqlite
-data\operations.jsonl
-data\summary-history.md
-data\config.ini
-```
-
-说明：
-
-- `notes.sqlite` 保存主笔记数据。
-- `operations.jsonl` 保存操作日志。
-- `summary-history.md` 保存 AI 摘要历史。
-- `config.ini` 保存本地配置。
-- 测试会通过 `STICKY_NOTES_DATA_DIR` 指向临时目录，避免污染真实运行数据。
-
-`STICKY_NOTES_DATA_DIR` 保留旧名称是为了兼容历史测试和旧数据路径，不代表当前项目展示名。
-
-## AI 摘要配置
-
-ChronoNotes 不内置任何公开 API Key。使用 AI 摘要前，需要在设置面板配置：
-
-- API URL
-- API Key
-- 模型名称
-
-接口按 OpenAI-compatible 格式调用。你可以使用兼容服务，也可以接入自己的代理层。请不要把 API Key 写入仓库、截图或公开 issue，钥匙挂门口这种操作，多少有点勇。
-
-## 路线图
-
-| 状态 | 项目 |
-| --- | --- |
-| 已完成 | Qt/QML 主界面、SQLite 存储、阶段视图、搜索、重复任务、导入导出。 |
-| 已完成 | AI 摘要、摘要历史、操作日志、QML 交互测试、发布包脚本。 |
-| 计划中 | 操作日志恢复界面。 |
-| 计划中 | 更完整的视觉细节、空状态和错误状态。 |
-| 计划中 | 正式安装器与版本化发布流程。 |
-| 暂不纳入 | 账号系统、云同步、多人协作、企业权限体系。 |
-
-## 贡献
-
-当前项目仍以个人维护和小范围迭代为主。提交改动前建议至少完成：
+提交前至少运行 Debug/Release、全部 CTest、`all_qmllint` 与：
 
 ```powershell
-cmake --build build -j 6
-ctest --test-dir build --output-on-failure
+git diff --check
 ```
 
-涉及 QML 的改动建议同时运行 `qmllint`。涉及数据结构的改动需要关注旧数据迁移、默认值和测试隔离。
+## 恢复中心
+
+设置面板中的恢复中心支持：
+
+- 创建工作区备份。
+- 预览 `.chrononotes` 导入影响。
+- 恢复自动备份或危险操作前备份。
+- 导入/导出工作区、JSON v1 与 Markdown。
+- 打开数据目录。
+- 导出不含正文、AI 内容和 API Key 的脱敏诊断。
+
+导入流程必须先完整解析和严格校验，再创建危险操作前备份，最后提交；
+任一步失败都会恢复原便签、偏好与摘要历史。
+
+## AI 配置与隐私
+
+使用 AI 摘要前，在设置中填写：
+
+- HTTPS API URL。
+- API Key。
+- OpenAI-compatible 模型名称。
+
+远程 HTTP 永远拒绝；只有用户显式启用后才允许
+`localhost`、`127.0.0.1`、`::1` 或 `*.localhost` 使用 HTTP。
+单次请求可取消，默认 45 秒超时；旧请求完成晚于新请求时，其结果会被丢弃。
+
+请勿把 API Key、运行数据库、诊断日志、构建目录或个人 Qt SDK 提交到仓库。
+
+## 可选发布工程
+
+仓库包含 NSIS 安装包、便携 ZIP、SHA-256、CycloneDX/SPDX SBOM、
+第三方声明和签名钩子的工程配置。没有签名证书时只会生成 `candidate`，
+不会伪装成正式发布。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/package_release.ps1 `
+  -BuildDir cmake-build-release -OutputDir dist
+```
+
+这一步不是本地开发或提交源码的前置条件。
+
+## 明确不做
+
+当前范围不包含暗色主题、账号、云同步、日历、提醒、自动更新、遥测和多人协作。
 
 ## 许可
 
 本项目使用 [PolyForm Noncommercial License 1.0.0](LICENSE)。
-
-你可以在非商业目的下使用、学习、修改和分发本项目。商业使用不在该许可范围内。如果你的使用场景涉及公司内部工具、付费产品、商业服务或商业交付，请先确认许可边界。
+商业使用不在该许可范围内，请在公司内部工具、付费产品或商业交付前确认许可边界。

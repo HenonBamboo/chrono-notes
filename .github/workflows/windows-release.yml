@@ -1,0 +1,89 @@
+name: Windows release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-package:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt 6.8.3 and matching MinGW
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: 'win64_mingw'
+          dir: '${{ github.workspace }}/third_party/Qt'
+          tools: 'tools_mingw1310'
+          cache: true
+
+      - name: Normalize Qt layout
+        shell: pwsh
+        run: |
+          $qt = Get-ChildItem third_party/Qt -Directory -Recurse | Where-Object Name -eq mingw_64 | Select-Object -First 1
+          if (-not $qt) { throw 'Qt mingw_64 directory not found' }
+          $target = Join-Path $PWD 'third_party/Qt/6.8.3/mingw_64'
+          New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+          if ($qt.FullName -ne $target) { Move-Item -LiteralPath $qt.FullName -Destination $target }
+          $compiler = Get-ChildItem third_party/Qt -Filter g++.exe -File -Recurse | Select-Object -First 1
+          "MINGW_BIN=$($compiler.DirectoryName)" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Debug and Release verification
+        shell: pwsh
+        run: |
+          ./tools/build.ps1 -Configuration Debug -Clean -RunTests
+          ./tools/build.ps1 -Configuration Release -Clean -RunTests
+
+      - name: Prepare signing certificate
+        shell: pwsh
+        env:
+          CHRONONOTES_SIGN_PFX_BASE64: '${{ secrets.CHRONONOTES_SIGN_PFX_BASE64 }}'
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:CHRONONOTES_SIGN_PFX_BASE64)) {
+            $path = Join-Path $env:RUNNER_TEMP 'chrononotes-signing.pfx'
+            [IO.File]::WriteAllBytes(
+              $path,
+              [Convert]::FromBase64String($env:CHRONONOTES_SIGN_PFX_BASE64)
+            )
+            "CHRONONOTES_SIGN_PFX=$path" | Out-File $env:GITHUB_ENV -Append
+          }
+
+      - name: Package candidate
+        shell: pwsh
+        env:
+          CHRONONOTES_SIGN_PASSWORD: '${{ secrets.CHRONONOTES_SIGN_PASSWORD }}'
+        run: ./tools/package_release.ps1 -BuildDir cmake-build-release -SkipBuild
+
+      - name: Read release status
+        id: release_status
+        shell: pwsh
+        run: |
+          $status = (Get-Content dist/RELEASE_STATUS.txt -Raw).Trim()
+          "signed=$($status -eq 'signed')" | Out-File $env:GITHUB_OUTPUT -Append
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChronoNotes-windows-candidate
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.json
+            dist/RELEASE_STATUS.txt
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v') && steps.release_status.outputs.signed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        run: gh release create '${{ github.ref_name }}' dist/* --verify-tag --generate-notes

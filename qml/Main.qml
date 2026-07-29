@@ -11,6 +11,7 @@ ApplicationWindow {
     readonly property ChronoTokens appTokens: ChronoTokens {
         fontUi: root.app.uiFontFamily
         baseFontSize: root.app.uiFontSize
+        reduceMotion: root.app.reduceMotion
     }
     readonly property var tokens: root.appTokens
 
@@ -21,16 +22,15 @@ ApplicationWindow {
     visible: true
     title: "ChronoNotes"
     color: root.paperColor
-    flags: Qt.Window | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
+    flags: Qt.Window
     font.family: root.appTokens.fontUi
     font.pixelSize: root.appTokens.sizeBody
     background: Item {}
 
     property string panel: ""
     property string workspace: "notes"
-    property bool aiBusy: false
     property bool searchOpen: false
-    property real drawerWidth: panel === "" ? 0 : Math.min(320, Math.max(300, width * 0.34))
+    property real drawerWidth: panel === "" ? 0 : Math.min(440, Math.max(360, width * 0.42))
     property color paperColor: root.workspace === "projects" ? tokens.paperProject : tokens.paper
     property color cardColor: tokens.card
     property color inkColor: tokens.ink
@@ -39,19 +39,42 @@ ApplicationWindow {
     property color blueColor: tokens.accentBlue
     property url pendingImportFile
     property string pendingImportText: ""
+    property url pendingWorkspaceFile
+    property url pendingRestoreFile
+    property var pendingWorkspacePreview: ({})
+    property var focusReturnItem: null
+    property string recoveryStatus: ""
+    property bool recoveryBusy: false
     required property var app
     required property var projectModel
+    property var workspaceRecovery: null
+    readonly property var projectPanel: projectTreeLoader.item
 
     Behavior on drawerWidth { NumberAnimation { duration: root.tokens.drawerDuration; easing.type: Easing.OutCubic } }
 
     function togglePanel(name) {
-        root.panel = root.panel === name ? "" : name
+        if (root.panel === name) {
+            root.closeCurrentPanel()
+            return
+        }
+        root.focusReturnItem = root.activeFocusItem
+        root.panel = name
+        if (name === "settings" && root.workspaceRecovery)
+            root.workspaceRecovery.refreshBackups()
+        Qt.callLater(drawer.focusInitial)
     }
 
     function closeCurrentPanel() {
         if (root.panel === "detail")
             root.app.clearSelectedEvent()
+        drawer.releaseInputFocus()
         root.panel = ""
+        const returnTarget = root.focusReturnItem
+        root.focusReturnItem = null
+        Qt.callLater(function() {
+            if (returnTarget && returnTarget.visible && returnTarget.enabled)
+                returnTarget.forceActiveFocus(Qt.TabFocusReason)
+        })
     }
 
     function switchWorkspace(name) {
@@ -99,6 +122,45 @@ ApplicationWindow {
         toast.y = root.height - 64
     }
 
+    function projectSummaryContext() {
+        return root.projectPanel ? root.projectPanel.aiContextText : ""
+    }
+
+    function projectSummaryEmpty() {
+        return !root.projectPanel || !root.projectPanel.aiSummaryAvailable
+    }
+
+    function workspacePreviewText(preview) {
+        if (!preview || !preview.valid)
+            return preview && preview.error ? preview.error : "无法预览该工作区文件。"
+        return "将替换当前工作区：\n"
+                + "便签 " + preview.currentNoteCount + " → " + preview.noteCount
+                + "（变化 " + preview.noteDelta + "）\n"
+                + "项目 " + preview.currentProjectCount + " → " + preview.projectCount
+                + "（变化 " + preview.projectDelta + "）\n"
+                + "摘要历史 " + preview.currentSummaryCount + " → " + preview.summaryCount
+                + "\n确认后会先自动保护当前数据，再以一次提交完成恢复。"
+    }
+
+    function previewWorkspace(fileUrl, restoreMode) {
+        if (!root.workspaceRecovery) {
+            root.showToast("恢复中心暂不可用")
+            return
+        }
+        const preview = root.workspaceRecovery.previewImport(fileUrl)
+        root.pendingWorkspacePreview = preview
+        if (!preview.valid) {
+            root.showToast(preview.error || "工作区文件校验失败")
+            return
+        }
+        if (restoreMode)
+            root.pendingRestoreFile = fileUrl
+        else
+            root.pendingWorkspaceFile = fileUrl
+        workspaceImportConfirmDialog.restoreMode = restoreMode
+        workspaceImportConfirmDialog.open()
+    }
+
     function defaultExportName(suffix) {
         return "stickies-export." + suffix
     }
@@ -111,11 +173,34 @@ ApplicationWindow {
         }
         function onSummaryReady(result) {
             drawer.aiResultText = result
-            root.aiBusy = false
         }
         function onSelectedEventChanged() {
             if (root.panel === "detail" && !root.app.hasSelectedEvent)
                 root.panel = ""
+        }
+        function onOperationFailed(code, message, recoverable) {
+            root.showToast(message)
+        }
+    }
+
+    Connections {
+        target: root.workspaceRecovery
+        ignoreUnknownSignals: true
+
+        function onOperationSucceeded(message, path) {
+            root.recoveryBusy = false
+            root.recoveryStatus = message
+            root.showToast(message)
+        }
+
+        function onOperationFailed(message) {
+            root.recoveryBusy = false
+            root.recoveryStatus = ""
+            root.showToast(message)
+        }
+
+        function onBackupsChanged() {
+            root.recoveryBusy = false
         }
     }
 
@@ -185,7 +270,7 @@ ApplicationWindow {
             uiFontFamily: root.app.uiFontFamily
             uiFontSize: root.app.uiFontSize
             windowVisibility: root.visibility
-            onMoveRequested: root.startSystemMove()
+            showWindowControls: false
             onWorkspaceRequested: function(name) {
                 root.switchWorkspace(name)
             }
@@ -295,6 +380,8 @@ ApplicationWindow {
                     completedCount: root.app.completedCount
                     hasVisibleRows: root.app.hasVisibleRows
                     stageLabel: root.app.stageLabel
+                    searchActive: root.app.searchActive
+                    searchQuery: root.app.searchQuery
                     overlayOpen: root.panel !== ""
                     blueColor: root.blueColor
                     accentColor: root.accentColor
@@ -323,19 +410,23 @@ ApplicationWindow {
                     }
                 }
 
-                ProjectTreePanel {
-                    id: projectTree
-                    visible: root.workspace === "projects"
+                Loader {
+                    id: projectTreeLoader
+                    objectName: "projectTreeLoader"
+                    active: root.workspace === "projects"
                     anchors.fill: parent
-                    model: root.projectModel
-                    inkColor: root.inkColor
-                    mutedColor: root.mutedColor
-                    accentColor: tokens.accentMint
-                    theme: root.appTokens
-                    uiFontFamily: root.app.uiFontFamily
-                    uiFontSize: root.app.uiFontSize
-                    onNoticeRequested: function(message) {
-                        root.showToast(message)
+                    asynchronous: false
+                    sourceComponent: Component {
+                        ProjectTreePanel {
+                            model: root.projectModel
+                            inkColor: root.inkColor
+                            mutedColor: root.mutedColor
+                            accentColor: root.tokens.projectAccent
+                            theme: root.appTokens
+                            onNoticeRequested: function(message) {
+                                root.showToast(message)
+                            }
+                        }
                     }
                 }
             }
@@ -347,12 +438,14 @@ ApplicationWindow {
             anchors.right: parent.right
             anchors.top: titlebar.bottom
             anchors.bottom: parent.bottom
-            color: "#1a071426"
+            color: root.tokens.scrim
             visible: opacity > 0
             opacity: root.panel === "" ? 0 : 1
             z: 24
 
-            Behavior on opacity { NumberAnimation { duration: root.tokens.drawerDuration; easing.type: Easing.OutCubic } }
+            Behavior on opacity {
+                NumberAnimation { duration: root.tokens.drawerDuration; easing.type: Easing.OutCubic }
+            }
 
             MouseArea {
                 anchors.fill: parent
@@ -370,16 +463,20 @@ ApplicationWindow {
             visible: width > 1
             z: 32
             panel: root.panel
-            aiBusy: root.aiBusy
+            aiBusy: root.app.aiBusy
+            aiState: root.app.aiState
+            aiError: root.app.aiError
+            hasApiKey: root.app.hasApiKey
             detailText: root.app.selectedEventText
             detailMeta: root.app.selectedEventMeta
             detailRepeat: root.app.selectedEventRepeat
             detailReadOnly: root.app.selectedEventReadOnly
             summaryScope: root.workspace === "projects" ? "projects" : "stickies"
-            summaryContextText: root.workspace === "projects" ? projectTree.aiContextText : ""
-            summaryEmpty: root.workspace === "projects" && !projectTree.aiSummaryAvailable
+            summaryContextText: root.workspace === "projects" ? root.projectSummaryContext() : ""
+            summaryEmpty: root.workspace === "projects" && root.projectSummaryEmpty()
             workspaceSurfaceColor: root.paperColor
             theme: root.appTokens
+            reduceMotion: root.app.reduceMotion
             onCloseRequested: {
                 root.closeCurrentPanel()
             }
@@ -394,27 +491,76 @@ ApplicationWindow {
                 root.app.setEventRepeat(root.app.selectedEventId, repeat)
             }
             onRunAiRequested: function(requirement, contextText) {
-                root.aiBusy = true
                 drawer.aiResultText = ""
                 if (root.workspace === "projects")
                     root.app.summarizeContextAsync(requirement, contextText)
                 else
                     root.app.summarizeAsync(requirement)
             }
+            onCancelAiRequested: root.app.cancelSummary()
             apiUrl: root.app.apiUrl
-            apiKey: root.app.apiKey
             modelName: root.app.modelName
+            allowLocalHttp: root.app.allowLocalHttp
+            dataDirectory: root.app.dataDirectory
             uiFontFamily: root.app.uiFontFamily
             uiFontSize: root.app.uiFontSize
             uiFontFamilies: root.app.uiFontFamilies
-            onSaveSettingsRequested: function(url, key, model, fontFamily, fontSize) {
+            backupEntries: root.workspaceRecovery ? root.workspaceRecovery.backups : []
+            recoveryStatus: root.recoveryStatus
+            recoveryError: root.workspaceRecovery ? root.workspaceRecovery.lastError : ""
+            recoveryBusy: root.recoveryBusy
+            onSaveSettingsRequested: function(url, newKey, model, allowHttp, reduceAnimations,
+                                              fontFamily, fontSize) {
                 root.app.apiUrl = url
-                root.app.apiKey = key
                 root.app.modelName = model
+                root.app.allowLocalHttp = allowHttp
+                root.app.reduceMotion = reduceAnimations
                 root.app.uiFontFamily = fontFamily
                 root.app.uiFontSize = fontSize
-                root.app.saveConfig()
-                root.panel = ""
+                if (!root.app.saveSettings(newKey))
+                    return
+                drawer.clearApiKeyDraft()
+                root.closeCurrentPanel()
+            }
+            onClearApiKeyRequested: {
+                if (root.app.clearApiKey())
+                    root.showToast("API Key 已删除")
+            }
+            onCreateBackupRequested: {
+                if (!root.workspaceRecovery) {
+                    root.showToast("恢复中心暂不可用")
+                    return
+                }
+                root.recoveryBusy = true
+                root.workspaceRecovery.createBackup()
+            }
+            onExportWorkspaceRequested: {
+                if (!root.workspaceRecovery) {
+                    root.showToast("恢复中心暂不可用")
+                    return
+                }
+                root.recoveryBusy = true
+                root.workspaceRecovery.createBackup()
+            }
+            onImportWorkspaceRequested: workspaceImportDialog.open()
+            onRestoreBackupRequested: function(backupUrl) {
+                if (!backupUrl || backupUrl.toString().length === 0) {
+                    root.showToast("请选择一个可恢复备份")
+                    return
+                }
+                root.previewWorkspace(backupUrl, true)
+            }
+            onExportDiagnosticsRequested: diagnosticsExportDialog.open()
+            onOpenDataDirectoryRequested: {
+                const normalized = root.app.dataDirectory.replace(/\\/g, "/")
+                Qt.openUrlExternally("file:///" + normalized)
+            }
+            onRefreshBackupsRequested: {
+                if (root.workspaceRecovery) {
+                    root.recoveryBusy = true
+                    root.workspaceRecovery.refreshBackups()
+                    root.recoveryBusy = false
+                }
             }
             onClearCompletedRequested: root.app.clearCompletedCurrent()
             onClearCompletedAllRequested: root.app.clearCompletedAll()
@@ -481,6 +627,69 @@ ApplicationWindow {
         selectedFile: root.defaultExportName("md")
         nameFilters: ["Markdown 文件 (*.md)", "所有文件 (*)"]
         onAccepted: root.app.exportMarkdownToFile(selectedFile)
+    }
+
+    FileDialog {
+        id: workspaceImportDialog
+        title: "选择 ChronoNotes 工作区备份"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["ChronoNotes 工作区 (*.chrononotes)", "所有文件 (*)"]
+        onAccepted: root.previewWorkspace(selectedFile, false)
+    }
+
+    Dialog {
+        id: workspaceImportConfirmDialog
+        property bool restoreMode: false
+
+        modal: true
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+        width: Math.min(root.width - 64, 460)
+        title: restoreMode ? "确认恢复备份" : "确认导入工作区"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        closePolicy: Popup.CloseOnEscape
+        onAccepted: {
+            if (!root.workspaceRecovery)
+                return
+            root.recoveryBusy = true
+            const ok = restoreMode
+                       ? root.workspaceRecovery.restoreBackup(root.pendingRestoreFile)
+                       : root.workspaceRecovery.importWorkspace(root.pendingWorkspaceFile)
+            if (!ok)
+                root.recoveryBusy = false
+        }
+
+        contentItem: Text {
+            width: workspaceImportConfirmDialog.availableWidth
+            text: root.workspacePreviewText(root.pendingWorkspacePreview)
+            color: root.inkColor
+            wrapMode: Text.WordWrap
+            font.pixelSize: root.tokens.sizeBody
+            font.family: root.tokens.fontUi
+            renderType: Text.NativeRendering
+            Accessible.role: Accessible.StaticText
+            Accessible.name: workspaceImportConfirmDialog.title
+            Accessible.description: text
+        }
+    }
+
+    FileDialog {
+        id: diagnosticsExportDialog
+        title: "导出脱敏诊断"
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "zip"
+        selectedFile: "chrononotes-diagnostics.zip"
+        nameFilters: ["ZIP 压缩包 (*.zip)", "所有文件 (*)"]
+        onAccepted: {
+            if (!root.workspaceRecovery) {
+                root.showToast("恢复中心暂不可用")
+                return
+            }
+            root.recoveryBusy = true
+            const path = root.workspaceRecovery.exportDiagnostics(selectedFile)
+            if (!path || path.length === 0)
+                root.recoveryBusy = false
+        }
     }
 
     ResizeHandle {
@@ -555,14 +764,14 @@ ApplicationWindow {
         radius: 19
         x: (parent.width - width) / 2
         y: parent.height - 58
-        color: "#1f2937"
+        color: root.tokens.toastSurface
         opacity: 0
         z: 80
 
         Text {
             id: toastText
             anchors.centerIn: parent
-            color: "white"
+            color: root.tokens.toastText
             font.pixelSize: root.tokens.sizeBody + 1
             font.family: root.tokens.fontUi
             renderType: Text.NativeRendering

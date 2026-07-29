@@ -17,7 +17,7 @@ Row {
     property string uiFontFamily: theme ? theme.fontUi : "Microsoft YaHei UI"
     property int uiFontSize: theme ? theme.baseFontSize : 12
 
-    height: 30
+    height: 36
     clip: true
     spacing: 12
 
@@ -25,18 +25,22 @@ Row {
         anchors.verticalCenter: parent.verticalCenter
         text: "未完成 " + Math.max(0, stats.totalCount - stats.completedCount)
         uiFontFamily: stats.tokens.fontUi
-        uiFontSize: stats.tokens.sizeBody
+        uiFontSize: stats.tokens.sizeMeta
+        theme: stats.tokens
+        textColor: stats.tokens.textSecondary
         font.family: stats.tokens.fontUi
-        font.pixelSize: stats.tokens.sizeBody
+        font.pixelSize: stats.tokens.sizeMeta
     }
 
     TinyMeta {
         anchors.verticalCenter: parent.verticalCenter
         text: "已完成 " + stats.completedCount
         uiFontFamily: stats.tokens.fontUi
-        uiFontSize: stats.tokens.sizeBody
+        uiFontSize: stats.tokens.sizeMeta
+        theme: stats.tokens
+        textColor: stats.tokens.textSecondary
         font.family: stats.tokens.fontUi
-        font.pixelSize: stats.tokens.sizeBody
+        font.pixelSize: stats.tokens.sizeMeta
     }
 
     Rectangle {
@@ -46,6 +50,12 @@ Row {
         color: stats.tokens.lineSoft
         anchors.verticalCenter: parent.verticalCenter
         clip: true
+
+        Accessible.role: Accessible.ProgressBar
+        Accessible.name: stats.totalCount > 0
+                         ? "便签完成进度 " + Math.round(stats.completedCount * 100 / stats.totalCount) + "%"
+                         : "便签完成进度 0%"
+        Accessible.description: "已完成 " + stats.completedCount + " 条，共 " + stats.totalCount + " 条"
 
         Rectangle {
             height: parent.height

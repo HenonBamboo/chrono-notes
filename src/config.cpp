@@ -1,112 +1,171 @@
 #include "config.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <QFile>
+#include <QSaveFile>
+#include <QStringConverter>
+#include <QTextStream>
 
-static void copy_wstr(wchar_t *dest, size_t dest_count, const wchar_t *src) {
-    if (dest_count == 0) {
-        return;
-    }
-    if (src == NULL) {
-        dest[0] = L'\0';
-        return;
-    }
-    wcsncpy(dest, src, dest_count - 1);
-    dest[dest_count - 1] = L'\0';
-}
+#include <utility>
 
-static void trim_newline(wchar_t *text) {
-    if (text == NULL) {
-        return;
-    }
-    size_t len = wcslen(text);
-    while (len > 0 && (text[len - 1] == L'\n' || text[len - 1] == L'\r')) {
-        text[--len] = L'\0';
+namespace {
+
+constexpr int kMinimumFontSize = 10;
+constexpr int kMaximumFontSize = 18;
+constexpr int kDefaultFontSize = 14;
+
+void setError(QString *error, const QString &message) {
+    if (error != nullptr) {
+        *error = message;
     }
 }
 
-static int normalized_font_size(int value) {
-    return value >= 10 && value <= 18 ? value : 12;
+int normalizedFontSize(int value) {
+    return value >= kMinimumFontSize && value <= kMaximumFontSize
+               ? value
+               : kDefaultFontSize;
 }
 
-void config_defaults(AppConfig *config) {
-    if (config == NULL) {
-        return;
-    }
-    copy_wstr(config->api_url, CONFIG_VALUE_MAX, L"https://api.openai.com/v1/chat/completions");
-    copy_wstr(config->api_key, CONFIG_VALUE_MAX, L"");
-    copy_wstr(config->model, 128, L"gpt-4o-mini");
-    copy_wstr(config->ui_font_family, 128, L"Microsoft YaHei UI");
-    config->ui_font_size = 12;
+bool isSingleLineWithin(const QString &value, qsizetype maximumLength) {
+    return value.size() <= maximumLength &&
+           !value.contains(QLatin1Char('\n')) &&
+           !value.contains(QLatin1Char('\r')) &&
+           !value.contains(QChar::Null);
 }
 
-int config_load(AppConfig *config, const wchar_t *path) {
-    if (config == NULL || path == NULL) {
-        return 0;
+bool validateForSave(const AppConfig &config, QString *error) {
+    if (!isSingleLineWithin(config.apiUrl, AppConfig::MaximumUrlLength)) {
+        setError(error, QStringLiteral("AI 地址无效或超过 2,048 字符。"));
+        return false;
+    }
+    if (!isSingleLineWithin(config.model, AppConfig::MaximumModelLength)) {
+        setError(error, QStringLiteral("模型名称无效或超过 256 字符。"));
+        return false;
+    }
+    if (!isSingleLineWithin(config.uiFontFamily, AppConfig::MaximumFontFamilyLength)) {
+        setError(error, QStringLiteral("字体名称无效或超过 256 字符。"));
+        return false;
+    }
+    if (config.uiFontSize < kMinimumFontSize ||
+        config.uiFontSize > kMaximumFontSize) {
+        setError(error, QStringLiteral("字体大小必须在 10 到 18 之间。"));
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
+AppConfig defaultConfig() {
+    AppConfig config;
+    config.apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
+    config.uiFontFamily = QStringLiteral("Microsoft YaHei UI");
+    return config;
+}
+
+bool loadConfig(const QString &path, AppConfig *config, QString *error) {
+    if (config == nullptr || path.trimmed().isEmpty()) {
+        setError(error, QStringLiteral("设置文件路径无效。"));
+        return false;
     }
 
-    config_defaults(config);
-
-    FILE *file = _wfopen(path, L"r, ccs=UTF-8");
-    if (file == NULL) {
-        return 0;
+    AppConfig loaded = defaultConfig();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        setError(error, QStringLiteral("设置文件无法读取：%1").arg(file.errorString()));
+        return false;
     }
 
-    wchar_t line[1024];
-    while (fgetws(line, 1024, file) != NULL) {
-        trim_newline(line);
-        wchar_t *eq = wcschr(line, L'=');
-        if (eq == NULL) {
+    int schemaVersion = 1;
+    QTextStream input(&file);
+    input.setEncoding(QStringConverter::Utf8);
+    while (!input.atEnd()) {
+        const QString line = input.readLine();
+        const qsizetype separator = line.indexOf(QLatin1Char('='));
+        if (separator <= 0) {
             continue;
         }
-        *eq = L'\0';
-        const wchar_t *key = line;
-        const wchar_t *value = eq + 1;
+        const QString key = line.left(separator).trimmed();
+        const QString value = line.mid(separator + 1).trimmed();
 
-        if (wcscmp(key, L"api_url") == 0) {
-            copy_wstr(config->api_url, CONFIG_VALUE_MAX, value);
-        } else if (wcscmp(key, L"api_key") == 0) {
-            copy_wstr(config->api_key, CONFIG_VALUE_MAX, value);
-        } else if (wcscmp(key, L"model") == 0) {
-            copy_wstr(config->model, 128, value);
-        } else if (wcscmp(key, L"ui_font_family") == 0) {
-            copy_wstr(config->ui_font_family, 128, value);
-        } else if (wcscmp(key, L"ui_font_size") == 0) {
-            config->ui_font_size = normalized_font_size(static_cast<int>(wcstol(value, NULL, 10)));
+        if (key == QStringLiteral("version")) {
+            bool ok = false;
+            const int parsed = value.toInt(&ok);
+            if (!ok || parsed < 1) {
+                setError(error, QStringLiteral("设置文件版本号无效。"));
+                return false;
+            }
+            schemaVersion = parsed;
+        } else if (key == QStringLiteral("api_url")) {
+            loaded.apiUrl = value;
+        } else if (key == QStringLiteral("api_key")) {
+            loaded.legacyApiKey = value;
+        } else if (key == QStringLiteral("model")) {
+            loaded.model = value;
+        } else if (key == QStringLiteral("ui_font_family")) {
+            loaded.uiFontFamily = value;
+        } else if (key == QStringLiteral("ui_font_size")) {
+            loaded.uiFontSize = normalizedFontSize(value.toInt());
+        } else if (key == QStringLiteral("allow_local_http")) {
+            loaded.allowLocalHttp = value == QStringLiteral("1");
+        } else if (key == QStringLiteral("reduce_motion")) {
+            loaded.reduceMotion = value == QStringLiteral("1");
         }
     }
 
-    config->ui_font_size = normalized_font_size(config->ui_font_size);
-    if (config->ui_font_family[0] == L'\0') {
-        copy_wstr(config->ui_font_family, 128, L"Microsoft YaHei UI");
+    if (schemaVersion > AppConfig::CurrentSchemaVersion) {
+        setError(error, QStringLiteral("设置文件来自更高版本，当前程序不会覆盖它。"));
+        return false;
+    }
+    if (!isSingleLineWithin(loaded.apiUrl, AppConfig::MaximumUrlLength) ||
+        !isSingleLineWithin(loaded.model, AppConfig::MaximumModelLength) ||
+        !isSingleLineWithin(loaded.uiFontFamily, AppConfig::MaximumFontFamilyLength) ||
+        !isSingleLineWithin(loaded.legacyApiKey, AppConfig::MaximumLegacyKeyLength)) {
+        setError(error, QStringLiteral("设置文件包含超长或非法字段。"));
+        return false;
+    }
+    if (loaded.uiFontFamily.isEmpty()) {
+        loaded.uiFontFamily = defaultConfig().uiFontFamily;
     }
 
-    fclose(file);
-    return 1;
+    *config = std::move(loaded);
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
 }
 
-int config_save(const AppConfig *config, const wchar_t *path) {
-    if (config == NULL || path == NULL) {
-        return 0;
+bool saveConfig(const QString &path, const AppConfig &config, QString *error) {
+    if (path.trimmed().isEmpty()) {
+        setError(error, QStringLiteral("设置文件路径无效。"));
+        return false;
+    }
+    if (!validateForSave(config, error)) {
+        return false;
     }
 
-    FILE *file = _wfopen(path, L"w, ccs=UTF-8");
-    if (file == NULL) {
-        return 0;
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        setError(error, QStringLiteral("设置文件无法写入：%1").arg(file.errorString()));
+        return false;
     }
 
-    fwprintf(file, L"api_url=%ls\n", config->api_url);
-    fwprintf(file, L"api_key=%ls\n", config->api_key);
-    fwprintf(file, L"model=%ls\n", config->model);
-    fwprintf(file, L"ui_font_family=%ls\n", config->ui_font_family);
-    fwprintf(file, L"ui_font_size=%d\n", normalized_font_size(config->ui_font_size));
-    fclose(file);
-    return 1;
-}
-
-int config_has_ai(const AppConfig *config) {
-    return config != NULL &&
-           config->api_url[0] != L'\0' &&
-           config->api_key[0] != L'\0' &&
-           config->model[0] != L'\0';
+    QTextStream output(&file);
+    output.setEncoding(QStringConverter::Utf8);
+    output << "version=" << AppConfig::CurrentSchemaVersion << "\n";
+    output << "api_url=" << config.apiUrl << "\n";
+    output << "model=" << config.model << "\n";
+    output << "ui_font_family=" << config.uiFontFamily << "\n";
+    output << "ui_font_size=" << config.uiFontSize << "\n";
+    output << "allow_local_http=" << (config.allowLocalHttp ? 1 : 0) << "\n";
+    output << "reduce_motion=" << (config.reduceMotion ? 1 : 0) << "\n";
+    output.flush();
+    if (output.status() != QTextStream::Ok || !file.commit()) {
+        setError(error, QStringLiteral("设置文件原子保存失败：%1").arg(file.errorString()));
+        return false;
+    }
+    if (error != nullptr) {
+        error->clear();
+    }
+    return true;
 }

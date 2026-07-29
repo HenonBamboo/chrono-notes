@@ -1,22 +1,36 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <stddef.h>
-#include <wchar.h>
+#include <QString>
 
-#define CONFIG_VALUE_MAX 512
+struct AppConfig {
+    static constexpr int CurrentSchemaVersion = 2;
+    static constexpr qsizetype MaximumUrlLength = 2048;
+    static constexpr qsizetype MaximumModelLength = 256;
+    static constexpr qsizetype MaximumFontFamilyLength = 256;
+    static constexpr qsizetype MaximumLegacyKeyLength = 4096;
 
-typedef struct AppConfig {
-    wchar_t api_url[CONFIG_VALUE_MAX];
-    wchar_t api_key[CONFIG_VALUE_MAX];
-    wchar_t model[128];
-    wchar_t ui_font_family[128];
-    int ui_font_size;
-} AppConfig;
+    QString apiUrl;
+    QString legacyApiKey;
+    QString model;
+    QString uiFontFamily;
+    int uiFontSize{14};
+    bool allowLocalHttp{false};
+    bool reduceMotion{false};
 
-void config_defaults(AppConfig *config);
-int config_load(AppConfig *config, const wchar_t *path);
-int config_save(const AppConfig *config, const wchar_t *path);
-int config_has_ai(const AppConfig *config);
+    bool operator==(const AppConfig &other) const {
+        return apiUrl == other.apiUrl &&
+               legacyApiKey == other.legacyApiKey &&
+               model == other.model &&
+               uiFontFamily == other.uiFontFamily &&
+               uiFontSize == other.uiFontSize &&
+               allowLocalHttp == other.allowLocalHttp &&
+               reduceMotion == other.reduceMotion;
+    }
+};
+
+AppConfig defaultConfig();
+bool loadConfig(const QString &path, AppConfig *config, QString *error = nullptr);
+bool saveConfig(const QString &path, const AppConfig &config, QString *error = nullptr);
 
 #endif

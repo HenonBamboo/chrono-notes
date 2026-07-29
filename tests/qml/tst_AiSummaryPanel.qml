@@ -18,14 +18,24 @@ TestCase {
         signalName: "runRequested"
     }
 
+    SignalSpy {
+        id: cancelSpy
+        target: panel
+        signalName: "cancelRequested"
+    }
+
     function init() {
         panel.summaryScope = "stickies"
         panel.summaryContextText = ""
         panel.summaryEmpty = false
         panel.surfaceColor = panel.tokens.drawerPaper
+        panel.hasApiKey = true
         panel.aiBusy = false
+        panel.aiState = "idle"
+        panel.aiError = ""
         panel.aiResultText = ""
         runSpy.clear()
+        cancelSpy.clear()
     }
 
     function test_stickiesScopeUsesStickyCopy() {
@@ -60,5 +70,34 @@ TestCase {
 
         compare(findChild(panel, "aiRunButton").enabled, false)
         verify(findChild(panel, "aiScopeHint").text.indexOf("先创建项目") >= 0)
+    }
+
+    function test_missingCredentialAndFailureExposeClearStates() {
+        panel.hasApiKey = false
+        wait(0)
+
+        compare(findChild(panel, "aiRunButton").enabled, false)
+        compare(panel.statusTitle, "尚未配置 AI")
+        verify(panel.statusDescription.indexOf("设置") >= 0)
+
+        panel.hasApiKey = true
+        panel.aiState = "error"
+        panel.aiError = "请求超时"
+        wait(0)
+
+        compare(panel.statusTitle, "生成失败")
+        compare(panel.statusDescription, "请求超时")
+    }
+
+    function test_runningRequestCanBeCancelled() {
+        panel.aiBusy = true
+        panel.aiState = "running"
+        wait(0)
+
+        const runButton = findChild(panel, "aiRunButton")
+        compare(runButton.contentItem.text, "取消生成")
+        verify(runButton.enabled)
+        runButton.clicked()
+        compare(cancelSpy.count, 1)
     }
 }
